@@ -1,0 +1,1598 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <meta
+    name="description"
+    content="Portail documentaire RRM pour la publication, la consultation et la gestion des fiches."
+  >
+
+  <meta
+    name="author"
+    content="Portail documentaire RRM"
+  >
+
+  <meta
+    name="theme-color"
+    content="#175b86"
+  >
+
+  <title>Portail documentaire RRM</title>
+
+  <!-- =====================================================
+       POLICES
+       ===================================================== -->
+
+  <link
+    rel="preconnect"
+    href="https://fonts.googleapis.com"
+  >
+
+  <link
+    rel="preconnect"
+    href="https://fonts.gstatic.com"
+    crossorigin
+  >
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  >
+
+  <!-- =====================================================
+       FEUILLE DE STYLE
+       ===================================================== -->
+
+  <link
+    rel="stylesheet"
+    href="./styles.css"
+  >
+</head>
+
+<body>
+
+  <!-- =====================================================
+       EN-TETE PRINCIPAL
+       ===================================================== -->
+
+  <header class="main-header">
+    <div class="container header-content">
+
+      <button
+        type="button"
+        class="brand"
+        data-view="home"
+        aria-label="Retour à l'accueil"
+      >
+        <span class="brand-logo">
+          RRM
+        </span>
+
+        <span class="brand-text">
+          <strong>
+            Portail documentaire
+          </strong>
+
+          <small>
+            Gestion des fiches publiées
+          </small>
+        </span>
+      </button>
+
+      <nav
+        class="main-navigation"
+        aria-label="Navigation principale"
+      >
+
+        <button
+          type="button"
+          class="nav-button active"
+          data-view="home"
+        >
+          Accueil
+        </button>
+
+        <button
+          type="button"
+          class="nav-button"
+          data-view="documents"
+        >
+          Documents
+        </button>
+
+        <button
+          type="button"
+          class="nav-button"
+          data-view="publish"
+        >
+          Publier une fiche
+        </button>
+
+        <button
+          type="button"
+          class="nav-button admin-only hidden"
+          data-view="admin"
+        >
+          Administration
+        </button>
+
+        <button
+          id="loginButton"
+          type="button"
+          class="button button-outline"
+        >
+          Accès administrateur
+        </button>
+
+        <button
+          id="logoutButton"
+          type="button"
+          class="button button-danger hidden"
+        >
+          Déconnexion
+        </button>
+
+      </nav>
+    </div>
+  </header>
+
+  <!-- =====================================================
+       CONTENU PRINCIPAL
+       ===================================================== -->
+
+  <main>
+
+    <!-- ===================================================
+         VUE : ACCUEIL
+         =================================================== -->
+
+    <section
+      id="homeView"
+      class="view active-view"
+    >
+
+      <div class="hero">
+        <div class="container hero-grid">
+
+          <div class="hero-content">
+
+            <span class="eyebrow">
+              Rapid Response Mechanism
+            </span>
+
+            <h1>
+              Publier, centraliser et consulter les fiches
+              documentaires en toute simplicité
+            </h1>
+
+            <p>
+              Le portail permet aux organisations de publier
+              leurs fiches PDF en sélectionnant une organisation
+              et une Alerte ID. Les documents publiés peuvent
+              ensuite être recherchés, consultés et téléchargés
+              librement.
+            </p>
+
+            <div class="hero-actions">
+
+              <button
+                type="button"
+                class="button button-primary"
+                data-view="publish"
+              >
+                Publier une fiche
+              </button>
+
+              <button
+                type="button"
+                class="button button-light"
+                data-view="documents"
+              >
+                Consulter les documents
+              </button>
+
+            </div>
+          </div>
+
+          <aside class="hero-card">
+
+            <span class="hero-card-icon">
+              PDF
+            </span>
+
+            <h2>
+              Publication rapide
+            </h2>
+
+            <ol>
+              <li>
+                Sélectionner l'organisation
+              </li>
+
+              <li>
+                Sélectionner l'Alerte ID
+              </li>
+
+              <li>
+                Vérifier le secteur et la commune
+              </li>
+
+              <li>
+                Ajouter le fichier PDF
+              </li>
+
+              <li>
+                Publier la fiche
+              </li>
+            </ol>
+
+          </aside>
+
+        </div>
+      </div>
+
+      <div class="container statistics-section">
+
+        <div class="section-heading">
+
+          <span class="eyebrow">
+            Vue d'ensemble
+          </span>
+
+          <h2>
+            Indicateurs du portail
+          </h2>
+
+        </div>
+
+        <div class="statistics-grid">
+
+          <article class="stat-card">
+            <span>
+              Documents publiés
+            </span>
+
+            <strong id="documentsCount">
+              0
+            </strong>
+          </article>
+
+          <article class="stat-card">
+            <span>
+              Organisations représentées
+            </span>
+
+            <strong id="organizationsCount">
+              0
+            </strong>
+          </article>
+
+          <article class="stat-card">
+            <span>
+              Alertes documentées
+            </span>
+
+            <strong id="alertsCount">
+              0
+            </strong>
+          </article>
+
+          <article class="stat-card">
+            <span>
+              Communes couvertes
+            </span>
+
+            <strong id="communesCount">
+              0
+            </strong>
+          </article>
+
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ===================================================
+         VUE : DOCUMENTS
+         =================================================== -->
+
+    <section
+      id="documentsView"
+      class="view"
+    >
+
+      <div class="container page-section">
+
+        <div class="page-header">
+
+          <div>
+
+            <span class="eyebrow">
+              Bibliothèque documentaire
+            </span>
+
+            <h1>
+              Documents publiés
+            </h1>
+
+            <p>
+              Consultez les fiches publiées et utilisez les
+              filtres pour rechercher un document par organisation,
+              Alerte ID, secteur ou commune.
+            </p>
+
+          </div>
+
+          <button
+            type="button"
+            class="button button-primary"
+            data-view="publish"
+          >
+            Publier une nouvelle fiche
+          </button>
+
+        </div>
+
+        <!-- Filtres de recherche -->
+
+        <div class="filter-panel">
+
+          <div class="search-field">
+
+            <label
+              for="documentSearch"
+              class="visually-hidden"
+            >
+              Rechercher un document
+            </label>
+
+            <input
+              id="documentSearch"
+              type="search"
+              placeholder="Rechercher un document..."
+              autocomplete="off"
+            >
+
+          </div>
+
+          <div>
+
+            <label
+              for="filterOrganization"
+              class="visually-hidden"
+            >
+              Filtrer par organisation
+            </label>
+
+            <select id="filterOrganization">
+              <option value="">
+                Toutes les organisations
+              </option>
+            </select>
+
+          </div>
+
+          <div>
+
+            <label
+              for="filterAlert"
+              class="visually-hidden"
+            >
+              Filtrer par Alerte ID
+            </label>
+
+            <select id="filterAlert">
+              <option value="">
+                Toutes les alertes
+              </option>
+            </select>
+
+          </div>
+
+          <div>
+
+            <label
+              for="filterSector"
+              class="visually-hidden"
+            >
+              Filtrer par secteur
+            </label>
+
+            <select id="filterSector">
+              <option value="">
+                Tous les secteurs
+              </option>
+            </select>
+
+          </div>
+
+          <div>
+
+            <label
+              for="filterCommune"
+              class="visually-hidden"
+            >
+              Filtrer par commune
+            </label>
+
+            <select id="filterCommune">
+              <option value="">
+                Toutes les communes
+              </option>
+            </select>
+
+          </div>
+
+          <button
+            id="resetFiltersButton"
+            type="button"
+            class="button button-secondary"
+          >
+            Réinitialiser
+          </button>
+
+        </div>
+
+        <div class="results-heading">
+
+          <h2 id="documentsResultTitle">
+            Chargement des documents...
+          </h2>
+
+        </div>
+
+        <div
+          id="documentsList"
+          class="documents-grid"
+          aria-live="polite"
+        >
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ===================================================
+         VUE : PUBLICATION PUBLIQUE
+         =================================================== -->
+
+    <section
+      id="publishView"
+      class="view"
+    >
+
+      <div class="container page-section">
+
+        <div class="page-header">
+
+          <div>
+
+            <span class="eyebrow">
+              Publication publique
+            </span>
+
+            <h1>
+              Publier une fiche
+            </h1>
+
+            <p>
+              La publication est libre d'accès. Sélectionnez
+              votre organisation et l'Alerte ID concernée.
+              Le secteur et la commune seront renseignés
+              automatiquement.
+            </p>
+
+          </div>
+
+        </div>
+
+        <div class="form-layout">
+
+          <!-- Formulaire principal -->
+
+          <form
+            id="publishForm"
+            class="card form-card"
+            novalidate
+          >
+
+            <div class="form-group">
+
+              <label for="publishOrganization">
+                Organisation
+                <span aria-hidden="true">*</span>
+              </label>
+
+              <select
+                id="publishOrganization"
+                required
+              >
+                <option value="">
+                  Sélectionner une organisation
+                </option>
+              </select>
+
+            </div>
+
+            <div class="form-group">
+
+              <label for="publishAlert">
+                Alerte ID
+                <span aria-hidden="true">*</span>
+              </label>
+
+              <select
+                id="publishAlert"
+                required
+                disabled
+              >
+                <option value="">
+                  Sélectionner d'abord l'organisation
+                </option>
+              </select>
+
+            </div>
+
+            <div class="form-grid">
+
+              <div class="form-group">
+
+                <label for="publishSector">
+                  Secteur
+                </label>
+
+                <input
+                  id="publishSector"
+                  type="text"
+                  readonly
+                  placeholder="Rempli automatiquement"
+                >
+
+              </div>
+
+              <div class="form-group">
+
+                <label for="publishCommune">
+                  Commune
+                </label>
+
+                <input
+                  id="publishCommune"
+                  type="text"
+                  readonly
+                  placeholder="Remplie automatiquement"
+                >
+
+              </div>
+
+            </div>
+
+            <div class="form-group">
+
+              <label for="publishFile">
+                Fichier PDF
+                <span aria-hidden="true">*</span>
+              </label>
+
+              <label
+                for="publishFile"
+                class="file-zone"
+              >
+
+                <strong>
+                  Sélectionner un fichier PDF
+                </strong>
+
+                <span>
+                  Cliquez ici pour choisir le document
+                </span>
+
+                <span>
+                  Format accepté : PDF — Taille maximale : 20 Mo
+                </span>
+
+              </label>
+
+              <input
+                id="publishFile"
+                type="file"
+                accept=".pdf,application/pdf"
+                required
+                class="hidden-file-input"
+              >
+
+              <div
+                id="selectedFileInfo"
+                class="selected-file hidden"
+              >
+              </div>
+
+            </div>
+
+            <!-- Barre de progression -->
+
+            <div
+              id="publishProgressWrapper"
+              class="progress-wrapper hidden"
+              aria-live="polite"
+            >
+
+              <div class="progress-label">
+
+                <span>
+                  Publication en cours
+                </span>
+
+                <strong id="publishProgressText">
+                  0 %
+                </strong>
+
+              </div>
+
+              <div
+                class="progress-track"
+                role="progressbar"
+                aria-valuemin="0"
+                aria-valuemax="100"
+              >
+                <div
+                  id="publishProgressBar"
+                  class="progress-bar"
+                >
+                </div>
+              </div>
+
+            </div>
+
+            <div
+              id="publishMessage"
+              class="message hidden"
+              role="status"
+              aria-live="polite"
+            >
+            </div>
+
+            <button
+              id="publishSubmitButton"
+              type="submit"
+              class="button button-primary button-full"
+            >
+              Publier la fiche
+            </button>
+
+          </form>
+
+          <!-- Résumé de la publication -->
+
+          <aside class="card summary-card">
+
+            <span class="eyebrow">
+              Récapitulatif
+            </span>
+
+            <h2>
+              Informations de la fiche
+            </h2>
+
+            <dl>
+
+              <div>
+                <dt>
+                  Organisation
+                </dt>
+
+                <dd id="summaryOrganization">
+                  —
+                </dd>
+              </div>
+
+              <div>
+                <dt>
+                  Alerte ID
+                </dt>
+
+                <dd id="summaryAlert">
+                  —
+                </dd>
+              </div>
+
+              <div>
+                <dt>
+                  Secteur
+                </dt>
+
+                <dd id="summarySector">
+                  —
+                </dd>
+              </div>
+
+              <div>
+                <dt>
+                  Commune
+                </dt>
+
+                <dd id="summaryCommune">
+                  —
+                </dd>
+              </div>
+
+              <div>
+                <dt>
+                  Fichier
+                </dt>
+
+                <dd id="summaryFile">
+                  —
+                </dd>
+              </div>
+
+            </dl>
+
+            <div class="information-box">
+
+              <strong>
+                Important
+              </strong>
+
+              <p>
+                Après publication, seul un administrateur
+                pourra remplacer ou supprimer le document.
+              </p>
+
+            </div>
+
+          </aside>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ===================================================
+         VUE : ADMINISTRATION
+         =================================================== -->
+
+    <section
+      id="adminView"
+      class="view"
+    >
+
+      <div class="container page-section">
+
+        <div class="page-header">
+
+          <div>
+
+            <span class="eyebrow">
+              Espace sécurisé
+            </span>
+
+            <h1>
+              Administration du portail
+            </h1>
+
+            <p id="adminIdentity">
+              Gestion des organisations, des Alertes ID et
+              des documents publiés.
+            </p>
+
+          </div>
+
+        </div>
+
+        <!-- Onglets d'administration -->
+
+        <div
+          class="admin-tabs"
+          role="tablist"
+          aria-label="Sections administratives"
+        >
+
+          <button
+            type="button"
+            class="admin-tab active"
+            data-admin-panel="organizations"
+            role="tab"
+          >
+            Organisations
+          </button>
+
+          <button
+            type="button"
+            class="admin-tab"
+            data-admin-panel="alerts"
+            role="tab"
+          >
+            Alertes ID
+          </button>
+
+          <button
+            type="button"
+            class="admin-tab"
+            data-admin-panel="documents"
+            role="tab"
+          >
+            Documents
+          </button>
+
+        </div>
+
+        <!-- =================================================
+             ADMINISTRATION : ORGANISATIONS
+             ================================================= -->
+
+        <div
+          id="adminOrganizationsPanel"
+          class="admin-panel active"
+        >
+
+          <div class="admin-grid">
+
+            <!-- Formulaire organisation -->
+
+            <form
+              id="organizationForm"
+              class="card form-card"
+            >
+
+              <input
+                id="organizationId"
+                type="hidden"
+              >
+
+              <span class="eyebrow">
+                Référentiel
+              </span>
+
+              <h2>
+                Ajouter ou modifier une organisation
+              </h2>
+
+              <div class="form-group">
+
+                <label for="organizationName">
+                  Nom de l'organisation
+                  <span aria-hidden="true">*</span>
+                </label>
+
+                <input
+                  id="organizationName"
+                  type="text"
+                  required
+                  autocomplete="off"
+                  placeholder="Ex. OCADES Fada"
+                >
+
+              </div>
+
+              <div class="form-group">
+
+                <label for="organizationAcronym">
+                  Acronyme
+                </label>
+
+                <input
+                  id="organizationAcronym"
+                  type="text"
+                  autocomplete="off"
+                  placeholder="Ex. OCADES"
+                >
+
+              </div>
+
+              <div class="form-group">
+
+                <label for="organizationActive">
+                  Statut
+                </label>
+
+                <select id="organizationActive">
+                  <option value="true">
+                    Active
+                  </option>
+
+                  <option value="false">
+                    Inactive
+                  </option>
+                </select>
+
+              </div>
+
+              <div class="button-row">
+
+                <button
+                  type="submit"
+                  class="button button-primary"
+                >
+                  Enregistrer
+                </button>
+
+                <button
+                  id="resetOrganizationForm"
+                  type="button"
+                  class="button button-secondary"
+                >
+                  Annuler
+                </button>
+
+              </div>
+
+            </form>
+
+            <!-- Import organisations -->
+
+            <div class="card form-card">
+
+              <span class="eyebrow">
+                Importation
+              </span>
+
+              <h2>
+                Importer les organisations
+              </h2>
+
+              <p class="helper-text">
+                Le fichier doit être au format CSV.
+                Les colonnes attendues sont :
+              </p>
+
+              <pre class="csv-example">name,acronym,is_active</pre>
+
+              <div class="form-group">
+
+                <label for="organizationsCsvFile">
+                  Fichier CSV
+                </label>
+
+                <input
+                  id="organizationsCsvFile"
+                  type="file"
+                  accept=".csv,text/csv"
+                >
+
+              </div>
+
+              <button
+                id="importOrganizationsButton"
+                type="button"
+                class="button button-primary button-full"
+              >
+                Importer les organisations
+              </button>
+
+              <div
+                id="organizationsImportMessage"
+                class="message hidden"
+                role="status"
+                aria-live="polite"
+              >
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- Tableau des organisations -->
+
+          <div class="table-card">
+
+            <table>
+
+              <thead>
+                <tr>
+                  <th>
+                    Organisation
+                  </th>
+
+                  <th>
+                    Acronyme
+                  </th>
+
+                  <th>
+                    Statut
+                  </th>
+
+                  <th>
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody id="adminOrganizationsTable">
+                <tr>
+                  <td colspan="4">
+                    Chargement des organisations...
+                  </td>
+                </tr>
+              </tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+
+        <!-- =================================================
+             ADMINISTRATION : ALERTES ID
+             ================================================= -->
+
+        <div
+          id="adminAlertsPanel"
+          class="admin-panel"
+        >
+
+          <div class="admin-grid">
+
+            <!-- Formulaire alerte -->
+
+            <form
+              id="alertForm"
+              class="card form-card"
+            >
+
+              <input
+                id="alertDatabaseId"
+                type="hidden"
+              >
+
+              <span class="eyebrow">
+                Référentiel
+              </span>
+
+              <h2>
+                Ajouter ou modifier une Alerte ID
+              </h2>
+
+              <div class="form-group">
+
+                <label for="alertCode">
+                  Alerte ID
+                  <span aria-hidden="true">*</span>
+                </label>
+
+                <input
+                  id="alertCode"
+                  type="text"
+                  required
+                  autocomplete="off"
+                  placeholder="Ex. 682_250529_GOUTIB-1"
+                >
+
+              </div>
+
+              <div class="form-group">
+
+                <label for="alertSector">
+                  Secteur
+                  <span aria-hidden="true">*</span>
+                </label>
+
+                <input
+                  id="alertSector"
+                  type="text"
+                  required
+                  autocomplete="off"
+                  placeholder="Ex. Sécurité alimentaire"
+                >
+
+              </div>
+
+              <div class="form-group">
+
+                <label for="alertCommune">
+                  Commune
+                  <span aria-hidden="true">*</span>
+                </label>
+
+                <input
+                  id="alertCommune"
+                  type="text"
+                  required
+                  autocomplete="off"
+                  placeholder="Ex. Tibga"
+                >
+
+              </div>
+
+              <div class="form-grid">
+
+                <div class="form-group">
+
+                  <label for="alertProvince">
+                    Province
+                  </label>
+
+                  <input
+                    id="alertProvince"
+                    type="text"
+                    autocomplete="off"
+                    placeholder="Ex. Gourma"
+                  >
+
+                </div>
+
+                <div class="form-group">
+
+                  <label for="alertRegion">
+                    Région
+                  </label>
+
+                  <input
+                    id="alertRegion"
+                    type="text"
+                    autocomplete="off"
+                    placeholder="Ex. Goulmou"
+                  >
+
+                </div>
+
+              </div>
+
+              <div class="form-group">
+
+                <label for="alertOrganization">
+                  Organisation associée
+                  <span aria-hidden="true">*</span>
+                </label>
+
+                <select
+                  id="alertOrganization"
+                  required
+                >
+                  <option value="">
+                    Sélectionner une organisation
+                  </option>
+                </select>
+
+              </div>
+
+              <div class="form-group">
+
+                <label for="alertActive">
+                  Statut
+                </label>
+
+                <select id="alertActive">
+                  <option value="true">
+                    Active
+                  </option>
+
+                  <option value="false">
+                    Inactive
+                  </option>
+                </select>
+
+              </div>
+
+              <div class="button-row">
+
+                <button
+                  type="submit"
+                  class="button button-primary"
+                >
+                  Enregistrer
+                </button>
+
+                <button
+                  id="resetAlertForm"
+                  type="button"
+                  class="button button-secondary"
+                >
+                  Annuler
+                </button>
+
+              </div>
+
+            </form>
+
+            <!-- Import alertes -->
+
+            <div class="card form-card">
+
+              <span class="eyebrow">
+                Importation
+              </span>
+
+              <h2>
+                Importer les Alertes ID
+              </h2>
+
+              <p class="helper-text">
+                Le fichier doit être au format CSV.
+                Les colonnes attendues sont :
+              </p>
+
+              <pre class="csv-example">organization_name,alert_code,sector,commune,province,region,is_active</pre>
+
+              <div class="form-group">
+
+                <label for="alertsCsvFile">
+                  Fichier CSV
+                </label>
+
+                <input
+                  id="alertsCsvFile"
+                  type="file"
+                  accept=".csv,text/csv"
+                >
+
+              </div>
+
+              <button
+                id="importAlertsButton"
+                type="button"
+                class="button button-primary button-full"
+              >
+                Importer les Alertes ID
+              </button>
+
+              <div
+                id="alertsImportMessage"
+                class="message hidden"
+                role="status"
+                aria-live="polite"
+              >
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- Tableau des alertes -->
+
+          <div class="table-card">
+
+            <table>
+
+              <thead>
+                <tr>
+                  <th>
+                    Alerte ID
+                  </th>
+
+                  <th>
+                    Organisation
+                  </th>
+
+                  <th>
+                    Secteur
+                  </th>
+
+                  <th>
+                    Commune
+                  </th>
+
+                  <th>
+                    Statut
+                  </th>
+
+                  <th>
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody id="adminAlertsTable">
+                <tr>
+                  <td colspan="6">
+                    Chargement des Alertes ID...
+                  </td>
+                </tr>
+              </tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+
+        <!-- =================================================
+             ADMINISTRATION : DOCUMENTS
+             ================================================= -->
+
+        <div
+          id="adminDocumentsPanel"
+          class="admin-panel"
+        >
+
+          <div class="admin-panel-heading">
+
+            <div>
+
+              <span class="eyebrow">
+                Gestion documentaire
+              </span>
+
+              <h2>
+                Documents publiés
+              </h2>
+
+              <p>
+                L'administrateur peut remplacer ou supprimer
+                les documents publiés par les utilisateurs.
+              </p>
+
+            </div>
+
+          </div>
+
+          <div class="table-card">
+
+            <table>
+
+              <thead>
+                <tr>
+                  <th>
+                    Fichier
+                  </th>
+
+                  <th>
+                    Organisation
+                  </th>
+
+                  <th>
+                    Alerte ID
+                  </th>
+
+                  <th>
+                    Commune
+                  </th>
+
+                  <th>
+                    Date de publication
+                  </th>
+
+                  <th>
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody id="adminDocumentsTable">
+                <tr>
+                  <td colspan="6">
+                    Chargement des documents...
+                  </td>
+                </tr>
+              </tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- =====================================================
+       MODALE : CONNEXION ADMINISTRATEUR
+       ===================================================== -->
+
+  <div
+    id="loginModal"
+    class="modal hidden"
+    aria-hidden="true"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="loginModalTitle"
+  >
+
+    <div class="modal-backdrop"></div>
+
+    <div class="modal-dialog">
+
+      <button
+        id="closeLoginModal"
+        type="button"
+        class="modal-close"
+        aria-label="Fermer la fenêtre de connexion"
+      >
+        ×
+      </button>
+
+      <span class="eyebrow">
+        Accès sécurisé
+      </span>
+
+      <h2 id="loginModalTitle">
+        Connexion administrateur
+      </h2>
+
+      <p class="modal-description">
+        Utilisez le compte administrateur créé dans
+        Supabase Authentication.
+      </p>
+
+      <form id="loginForm">
+
+        <div class="form-group">
+
+          <label for="adminEmail">
+            Adresse e-mail
+          </label>
+
+          <input
+            id="adminEmail"
+            type="email"
+            autocomplete="username"
+            required
+            placeholder="administrateur@organisation.org"
+          >
+
+        </div>
+
+        <div class="form-group">
+
+          <label for="adminPassword">
+            Mot de passe
+          </label>
+
+          <input
+            id="adminPassword"
+            type="password"
+            autocomplete="current-password"
+            required
+            placeholder="Votre mot de passe"
+          >
+
+        </div>
+
+        <div
+          id="loginMessage"
+          class="message hidden"
+          role="alert"
+          aria-live="assertive"
+        >
+        </div>
+
+        <button
+          type="submit"
+          class="button button-primary button-full"
+        >
+          Se connecter
+        </button>
+
+      </form>
+
+    </div>
+
+  </div>
+
+  <!-- =====================================================
+       MODALE : REMPLACEMENT D'UN DOCUMENT
+       ===================================================== -->
+
+  <div
+    id="replaceModal"
+    class="modal hidden"
+    aria-hidden="true"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="replaceModalTitle"
+  >
+
+    <div class="modal-backdrop"></div>
+
+    <div class="modal-dialog">
+
+      <button
+        id="closeReplaceModal"
+        type="button"
+        class="modal-close"
+        aria-label="Fermer la fenêtre de remplacement"
+      >
+        ×
+      </button>
+
+      <span class="eyebrow">
+        Administration
+      </span>
+
+      <h2 id="replaceModalTitle">
+        Remplacer le document
+      </h2>
+
+      <p class="modal-description">
+        Le nouveau fichier remplacera le document actuellement
+        associé à cette fiche.
+      </p>
+
+      <form id="replaceDocumentForm">
+
+        <input
+          id="replaceDocumentId"
+          type="hidden"
+        >
+
+        <div class="form-group">
+
+          <label for="replacementFile">
+            Nouveau fichier PDF
+          </label>
+
+          <input
+            id="replacementFile"
+            type="file"
+            accept=".pdf,application/pdf"
+            required
+          >
+
+          <p class="helper-text">
+            Format PDF uniquement, taille maximale de 20 Mo.
+          </p>
+
+        </div>
+
+        <div
+          id="replaceMessage"
+          class="message hidden"
+          role="status"
+          aria-live="polite"
+        >
+        </div>
+
+        <button
+          type="submit"
+          class="button button-primary button-full"
+        >
+          Confirmer le remplacement
+        </button>
+
+      </form>
+
+    </div>
+
+  </div>
+
+  <!-- =====================================================
+       PIED DE PAGE
+       ===================================================== -->
+
+  <footer class="main-footer">
+
+    <div class="container footer-content">
+
+      <div>
+
+        <strong>
+          Portail documentaire RRM
+        </strong>
+
+        <span>
+          Publication, consultation et gestion des fiches
+        </span>
+
+      </div>
+
+      <div>
+        <span>
+          Propulsé par Supabase et GitHub Pages
+        </span>
+      </div>
+
+    </div>
+
+  </footer>
+
+  <!-- =====================================================
+       JAVASCRIPT PRINCIPAL
+       ===================================================== -->
+
+  <script
+    type="module"
+    src="./app.js"
+  ></script>
+
+</body>
+</html>
