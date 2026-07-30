@@ -3,20 +3,30 @@
    FEUILLE DE STYLE PRINCIPALE
    ========================================================== */
 
+/* Palette institutionnelle appliquee :
+   #003425  vert tres fonce
+   #004D35  vert fonce
+   #006747  vert institutionnel
+   #338C46  vert principal
+   #72BF44  vert accent
+   #CEE3A0  vert clair
+   #E6EFD0  vert tres clair
+*/
+
 :root {
-  --primary: #175b86;
-  --primary-dark: #0d3d5d;
-  --primary-darker: #082c43;
-  --primary-light: #e7f2f8;
-  --primary-soft: #f3f8fb;
+  --primary: #338C46;
+  --primary-dark: #006747;
+  --primary-darker: #003425;
+  --primary-light: #E6EFD0;
+  --primary-soft: #F4F8EA;
 
-  --accent: #f58220;
-  --accent-dark: #d96b0d;
-  --accent-light: #fff3e8;
+  --accent: #72BF44;
+  --accent-dark: #338C46;
+  --accent-light: #CEE3A0;
 
-  --success: #18794e;
-  --success-dark: #11633f;
-  --success-light: #e9f8f0;
+  --success: #006747;
+  --success-dark: #004D35;
+  --success-light: #E6EFD0;
 
   --danger: #b42318;
   --danger-dark: #8f1b13;
@@ -25,18 +35,18 @@
   --warning: #a15c00;
   --warning-light: #fff7e6;
 
-  --background: #f3f6f9;
+  --background: #F5F8EF;
   --surface: #ffffff;
-  --surface-soft: #f8fafc;
-  --surface-muted: #eef3f6;
+  --surface-soft: #F7FAF2;
+  --surface-muted: #E6EFD0;
 
-  --text: #1e293b;
-  --text-dark: #0f172a;
-  --muted: #64748b;
-  --muted-light: #94a3b8;
+  --text: #243129;
+  --text-dark: #10251A;
+  --muted: #5F7164;
+  --muted-light: #93A697;
 
-  --border: #dce4eb;
-  --border-dark: #c6d1da;
+  --border: #D9E5CF;
+  --border-dark: #B9CCAA;
 
   --shadow-sm:
     0 4px 14px
@@ -184,7 +194,7 @@ select:focus-visible,
 textarea:focus-visible {
   outline:
     3px solid
-    rgba(245, 130, 32, 0.28);
+    rgba(114, 191, 68, 0.30);
 
   outline-offset: 2px;
 }
@@ -258,7 +268,7 @@ textarea:focus-visible {
 
   box-shadow:
     0 8px 22px
-    rgba(23, 91, 134, 0.22);
+    rgba(0, 103, 71, 0.24);
 
   font-weight: 800;
   font-size: 13px;
@@ -373,7 +383,7 @@ textarea:focus-visible {
 
   box-shadow:
     0 8px 18px
-    rgba(23, 91, 134, 0.18);
+    rgba(51, 140, 70, 0.20);
 }
 
 .button-primary:hover:not(:disabled) {
@@ -386,7 +396,7 @@ textarea:focus-visible {
 }
 
 .button-secondary:hover:not(:disabled) {
-  background: #d5e9f3;
+  background: #D7E8BE;
 }
 
 .button-light {
@@ -395,7 +405,7 @@ textarea:focus-visible {
 }
 
 .button-light:hover:not(:disabled) {
-  background: #f5f8fa;
+  background: #F7FAF2;
 }
 
 .button-outline {
@@ -508,7 +518,7 @@ textarea:focus-visible {
     ),
     radial-gradient(
       circle at 10% 85%,
-      rgba(245, 130, 32, 0.12),
+      rgba(114, 191, 68, 0.18),
       transparent 28%
     ),
     linear-gradient(
@@ -860,19 +870,19 @@ textarea:focus {
 
   box-shadow:
     0 0 0 3px
-    rgba(23, 91, 134, 0.12);
+    rgba(51, 140, 70, 0.14);
 }
 
 input[readonly] {
-  color: #526476;
-  background: #f1f5f8;
+  color: #526458;
+  background: #F1F6E9;
 }
 
 input:disabled,
 select:disabled,
 textarea:disabled {
-  color: #81909d;
-  background: #eef2f5;
+  color: #7F9182;
+  background: #EDF3E7;
 
   cursor: not-allowed;
 }
@@ -899,7 +909,7 @@ input[type="file"] {
   background: var(--surface-soft);
 
   border:
-    2px dashed #a9bdcc;
+    2px dashed #AFCB98;
 
   border-radius: 13px;
 
@@ -1187,7 +1197,7 @@ input[type="file"] {
   background: var(--surface);
 
   border:
-    1px dashed #aebfcd;
+    1px dashed #B7CDA4;
 
   border-radius: 15px;
 }
@@ -1228,7 +1238,7 @@ input[type="file"] {
 
   overflow: hidden;
 
-  background: #e1e8ed;
+  background: #DDE7CF;
 
   border-radius: 20px;
 }
@@ -1300,7 +1310,7 @@ input[type="file"] {
 
   gap: 5px;
 
-  background: #e8eef3;
+  background: #E6EFD0;
 
   border-radius: 11px;
 }
@@ -1445,7 +1455,7 @@ td {
 
 th {
   color: var(--primary-dark);
-  background: #f2f6f8;
+  background: #F3F7EA;
 
   font-size: 10px;
   letter-spacing: 0.05em;
@@ -1458,7 +1468,7 @@ tbody tr {
 }
 
 tbody tr:hover {
-  background: #fafcfd;
+  background: #F8FAF3;
 }
 
 tbody tr:last-child td {
@@ -1609,7 +1619,7 @@ tbody tr:last-child td {
   place-items: center;
 
   color: var(--muted);
-  background: #f1f5f8;
+  background: #F1F6E9;
 
   border-radius: 50%;
 
