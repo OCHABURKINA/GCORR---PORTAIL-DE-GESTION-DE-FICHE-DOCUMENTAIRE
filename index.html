@@ -306,7 +306,7 @@
 
         <div id="admin-organizations-panel" class="admin-tab-panel active" role="tabpanel">
           <div class="admin-grid">
-            <form id="organizationForm" class="card form-card">
+            <form id="organizationForm" class="card form-card" novalidate>
               <input id="organizationDatabaseId" type="hidden">
 
               <span class="eyebrow">Référentiel</span>
@@ -335,7 +335,7 @@
               </div>
             </form>
 
-            <form id="organizationsCsvForm" class="card form-card">
+            <form id="organizationsCsvForm" class="card form-card" novalidate>
               <span class="eyebrow">Importation</span>
               <h2>Importer les organisations</h2>
 
@@ -379,7 +379,7 @@ Action contre la Faim,ACF,true</pre>
 
                 <button
                   id="importOrganizationsButton"
-                  type="submit"
+                  type="button"
                   class="button button-primary"
                 >
                   Importer les organisations
@@ -430,7 +430,7 @@ Action contre la Faim,ACF,true</pre>
 
         <div id="admin-alerts-panel" class="admin-tab-panel" role="tabpanel" hidden>
           <div class="admin-grid">
-            <form id="alertForm" class="card form-card">
+            <form id="alertForm" class="card form-card" novalidate>
               <input id="alertDatabaseId" type="hidden">
               <input id="alertCommuneDatabaseId" type="hidden">
 
@@ -468,7 +468,7 @@ Action contre la Faim,ACF,true</pre>
               </div>
             </form>
 
-            <form id="alertCsvForm" class="card form-card">
+            <form id="alertCsvForm" class="card form-card" novalidate>
               <span class="eyebrow">Importation</span>
               <h2>Importer les Alertes ID</h2>
 
@@ -601,12 +601,12 @@ Action contre la Faim,ACF,true</pre>
 
       <div class="footer-information">
         <span>Portail de gestion des fiches d’intervention</span>
-        <span>Support Technique - Unité IM OCHA Burkina Faso</span>
+        <span>Support technique — Unité IM OCHA Burkina Faso</span>
       </div>
     </div>
   </footer>
 
-    </div>
+  </div>
 
   <script type="module" src="./app.js"></script>
 
