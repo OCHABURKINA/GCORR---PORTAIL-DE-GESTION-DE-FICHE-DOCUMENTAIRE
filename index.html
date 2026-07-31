@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Portail GCORR de publication, de consultation et de gestion des fiches d'intervention de la Réponse Rapide au Burkina Faso.">
+  <meta name="description" content="Portail GCORR de publication, de consultation et de gestion des fiches d’intervention de la Réponse Rapide au Burkina Faso.">
   <meta name="author" content="Groupe de Coordination Opérationnelle de la Réponse Rapide — GCORR">
   <meta name="theme-color" content="#6cab3d">
 
@@ -18,7 +18,7 @@
 
 <body>
   <div id="applicationLoading" class="application-loading" role="status" aria-live="polite">Chargement du portail…</div>
-  <div id="applicationError" class="container hidden"></div>
+  <div id="applicationError" class="container hidden" role="alert" aria-live="assertive"></div>
   <div id="applicationContent" class="hidden">
   <header class="main-header">
     <div class="container header-content">
@@ -335,24 +335,21 @@
               </div>
             </form>
 
-            <div class="card form-card">
-              <span class="eyebrow">Importation</span>
-              <h2>Importer les organisations</h2>
-
-              <p class="helper-text">Le fichier doit être au format CSV. Les colonnes attendues sont :</p>
-              <pre class="csv-example">name,acronym,is_active</pre>
-
-              <div class="form-group">
-                <label for="organizationsCsvFile">Fichier CSV</label>
-                <input id="organizationsCsvFile" type="file" accept=".csv,text/csv">
+            <aside class="card form-card">
+              <span class="eyebrow">Information</span>
+              <h2>Gestion du référentiel</h2>
+              <p class="helper-text">
+                Ajoutez ou modifiez les organisations autorisées à publier des fiches.
+                Une organisation inactive ne sera plus proposée dans le formulaire public.
+              </p>
+              <div class="information-box">
+                <strong>Conseil</strong>
+                <p>
+                  Utilisez le nom officiel de l’organisation et un acronyme court
+                  pour faciliter la recherche.
+                </p>
               </div>
-
-              <button id="importOrganizationsButton" type="button" class="button button-primary button-full">
-                Importer les organisations
-              </button>
-
-              <div id="organizationsImportMessage" class="message hidden" role="status" aria-live="polite"></div>
-            </div>
+            </aside>
           </div>
 
           <div class="table-card">
@@ -394,7 +391,7 @@
               </div>
 
               <div class="form-group">
-                <label for="alertCommune">Commune <span aria-hidden="true">*</span></label>
+                <label for="alertCommune">Commune(s) <span aria-hidden="true">*</span></label>
                 <textarea id="alertCommune" rows="6" required placeholder="Une commune par ligne, ou séparées par des virgules ou des points-virgules"></textarea>
                 <p class="helper-text">
                   Une Alerte ID peut être enregistrée avec plusieurs communes. Utilisez une ligne par commune dans le fichier CSV.
@@ -435,8 +432,8 @@
               </div>
 
               <div class="form-group">
-                <label for="alertsCsvFile">Fichier CSV</label>
-                <input id="alertCsvFile" type="file" accept=".csv,text/csv,.txt,text/plain">
+                <label for="alertCsvFile">Fichier CSV</label>
+                <input id="alertCsvFile" type="file" accept=".csv,text/csv,.txt,text/plain,application/vnd.ms-excel" required>
               </div>
 
               <div class="button-row">
@@ -556,27 +553,7 @@
 
     </div>
 
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      const tabButtons = document.querySelectorAll("[data-admin-tab]");
-      const tabPanels = document.querySelectorAll(".admin-tab-panel");
-      tabButtons.forEach(function (button) {
-        button.addEventListener("click", function () {
-          const target = button.dataset.adminTab;
-          tabButtons.forEach(function (item) {
-            const active = item === button;
-            item.classList.toggle("active", active);
-            item.setAttribute("aria-selected", String(active));
-          });
-          tabPanels.forEach(function (panel) {
-            const active = panel.id === "admin-" + target + "-panel";
-            panel.hidden = !active;
-            panel.classList.toggle("active", active);
-          });
-        });
-      });
-    });
-  </script>
   <script type="module" src="./app.js"></script>
+
 </body>
 </html>
