@@ -1944,3 +1944,22 @@ FOOTER
     height:60px;
     width:auto;
 }
+.footer-logos {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.footer-logo {
+  width: auto;
+  object-fit: contain;
+}
+
+.footer-logo-gcorr {
+  height: 62px;
+}
+
+.footer-logo-ocha {
+  height: 48px;
+}
