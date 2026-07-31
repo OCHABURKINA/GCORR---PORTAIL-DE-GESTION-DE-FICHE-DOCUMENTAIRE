@@ -771,18 +771,8 @@ async function loadPublicAlertCommuneOptions() {
       alert_id,
       alert_code,
       region,
-      alert_is_active,
-      commune,
-      alert_commune_is_active
+      commune
     `)
-    .eq(
-      "alert_is_active",
-      true
-    )
-    .eq(
-      "alert_commune_is_active",
-      true
-    )
     .order("alert_code", {
       ascending: true,
     })
@@ -797,11 +787,25 @@ async function loadPublicAlertCommuneOptions() {
   }
 
   state.alertCommuneOptions =
-    data || [];
+    (data || []).map(
+      (item) => ({
+        ...item,
 
-  populateAlertFilters();
+        /*
+         * Valeurs par défaut, car ces colonnes
+         * ne sont pas présentes dans la vue actuelle.
+         */
+        alert_is_active: true,
+        alert_commune_is_active: true,
+      })
+    );
+
+  populatePublishCommuneSelect(
+    getElement("publishAlert")?.value || ""
+  );
+
+  populateDocumentFilters();
 }
-
 /* ==========================================================
    8. REMPLISSAGE DES LISTES DEROULANTES
    ========================================================== */
@@ -2984,22 +2988,19 @@ async function toggleOrganizationStatus(
  * y compris les alertes inactives.
  */
 async function loadAdminAlerts() {
-  const {
-    data: alertsData,
-    error: alertsError,
-  } = await supabase
-    .from("alerts")
-    .select(`
-      id,
-      alert_code,
-      region,
-      is_active,
-      created_at,
-      updated_at
-    `)
-    .order("alert_code", {
-      ascending: true,
-    });
+const {
+  data: communesData,
+  error: communesError,
+} = await supabase
+  .from("alert_communes")
+  .select(`
+    id,
+    alert_id,
+    commune
+  `)
+  .order("commune", {
+    ascending: true,
+  });
 
   if (alertsError) {
     throw new Error(
@@ -6503,30 +6504,46 @@ function initializeInterface() {
    ========================================================== */
 
 async function loadInitialData() {
-  /*
-   * L’ordre est important :
-   *
-   * 1. organisations ;
-   * 2. alertes ;
-   * 3. communes des alertes ;
-   * 4. documents.
-   *
-   * Les documents sont enrichis à partir
-   * des alertes et des communes déjà chargées.
-   */
-  await Promise.all([
-    loadPublicOrganizations(),
-    loadPublicAlerts(),
-    loadPublicAlertCommuneOptions(),
-  ]);
+  const results =
+    await Promise.allSettled([
+      loadPublicOrganizations(),
+      loadPublicAlerts(),
+      loadPublicAlertCommuneOptions(),
+    ]);
 
-  await loadDocuments();
+  results.forEach(
+    (result) => {
+      if (
+        result.status === "rejected"
+      ) {
+        console.error(
+          "Erreur de chargement :",
+          result.reason
+        );
+      }
+    }
+  );
+
+  try {
+    await loadDocuments();
+  } catch (error) {
+    console.error(
+      "Erreur de chargement des documents :",
+      error
+    );
+  }
 
   if (state.isAdmin) {
-    await loadAdminData();
+    try {
+      await loadAdminData();
+    } catch (error) {
+      console.error(
+        "Erreur de chargement de l’administration :",
+        error
+      );
+    }
   }
 }
-
 /* ==========================================================
    50. DEMARRAGE DE L'APPLICATION
    ========================================================== */
