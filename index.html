@@ -17,6 +17,9 @@
 </head>
 
 <body>
+  <div id="applicationLoading" class="application-loading" role="status" aria-live="polite">Chargement du portail…</div>
+  <div id="applicationError" class="container hidden"></div>
+  <div id="applicationContent" class="hidden">
   <header class="main-header">
     <div class="container header-content">
       <button type="button" class="brand" data-view="home" aria-label="Retour à la page d'accueil">
@@ -120,7 +123,10 @@
             </p>
           </div>
 
-          <button type="button" class="button button-primary" data-view="publish">Publier une nouvelle fiche</button>
+          <div class="button-row">
+            <button id="refreshDocumentsButton" type="button" class="button button-secondary">Actualiser</button>
+            <button type="button" class="button button-primary" data-view="publish">Publier une nouvelle fiche</button>
+          </div>
         </div>
 
         <div class="filter-panel">
@@ -228,7 +234,10 @@
 
             <div id="publishMessage" class="message hidden" role="status" aria-live="polite"></div>
 
-            <button id="publishSubmitButton" type="submit" class="button button-primary button-full">Publier la fiche</button>
+            <div class="button-row">
+              <button id="publishSubmitButton" type="submit" class="button button-primary">Publier la fiche</button>
+              <button id="resetPublishButton" type="button" class="button button-secondary">Réinitialiser</button>
+            </div>
           </form>
 
           <aside class="card summary-card">
@@ -284,18 +293,21 @@
               Gestion des organisations, des Alertes ID, des communes associées et des fiches publiées.
             </p>
           </div>
+          <button id="refreshAdminButton" type="button" class="button button-secondary">Actualiser les données</button>
         </div>
+
+        <div id="adminGlobalMessage" class="message hidden" role="status" aria-live="polite"></div>
 
         <div class="admin-tabs" role="tablist" aria-label="Sections administratives">
-          <button type="button" class="admin-tab active" data-admin-panel="organizations" role="tab">Organisations</button>
-          <button type="button" class="admin-tab" data-admin-panel="alerts" role="tab">Alertes ID</button>
-          <button type="button" class="admin-tab" data-admin-panel="documents" role="tab">Documents</button>
+          <button type="button" class="admin-tab active" data-admin-tab="organizations" aria-selected="true" aria-controls="admin-organizations-panel" role="tab">Organisations</button>
+          <button type="button" class="admin-tab" data-admin-tab="alerts" aria-selected="false" aria-controls="admin-alerts-panel" role="tab">Alertes ID</button>
+          <button type="button" class="admin-tab" data-admin-tab="documents" aria-selected="false" aria-controls="admin-documents-panel" role="tab">Documents</button>
         </div>
 
-        <div id="adminOrganizationsPanel" class="admin-panel active">
+        <div id="admin-organizations-panel" class="admin-tab-panel active" role="tabpanel">
           <div class="admin-grid">
             <form id="organizationForm" class="card form-card">
-              <input id="organizationId" type="hidden">
+              <input id="organizationDatabaseId" type="hidden">
 
               <span class="eyebrow">Référentiel</span>
               <h2>Ajouter ou modifier une organisation</h2>
@@ -310,17 +322,16 @@
                 <input id="organizationAcronym" type="text" autocomplete="off" placeholder="Ex. OCADES">
               </div>
 
-              <div class="form-group">
-                <label for="organizationActive">Statut</label>
-                <select id="organizationActive">
-                  <option value="true">Active</option>
-                  <option value="false">Inactive</option>
-                </select>
+              <div class="form-group form-check">
+                <input id="organizationActive" type="checkbox" checked>
+                <label for="organizationActive">Organisation active</label>
               </div>
 
+              <div id="organizationMessage" class="message hidden" role="status" aria-live="polite"></div>
+
               <div class="button-row">
-                <button type="submit" class="button button-primary">Enregistrer</button>
-                <button id="resetOrganizationForm" type="button" class="button button-secondary">Annuler</button>
+                <button id="organizationSubmitButton" type="submit" class="button button-primary">Enregistrer l’organisation</button>
+                <button id="resetOrganizationButton" type="button" class="button button-secondary">Annuler</button>
               </div>
             </form>
 
@@ -350,19 +361,20 @@
                 <tr>
                   <th>Organisation</th>
                   <th>Acronyme</th>
+                  <th>Identifiant</th>
                   <th>Statut</th>
                   <th>Actions</th>
                 </tr>
               </thead>
 
               <tbody id="adminOrganizationsTable">
-                <tr><td colspan="4">Chargement des organisations...</td></tr>
+                <tr><td colspan="5">Chargement des organisations...</td></tr>
               </tbody>
             </table>
           </div>
         </div>
 
-        <div id="adminAlertsPanel" class="admin-panel">
+        <div id="admin-alerts-panel" class="admin-tab-panel" role="tabpanel" hidden>
           <div class="admin-grid">
             <form id="alertForm" class="card form-card">
               <input id="alertDatabaseId" type="hidden">
@@ -383,27 +395,26 @@
 
               <div class="form-group">
                 <label for="alertCommune">Commune <span aria-hidden="true">*</span></label>
-                <input id="alertCommune" type="text" required autocomplete="off" placeholder="Ex. Ouargaye">
+                <textarea id="alertCommune" rows="6" required placeholder="Une commune par ligne, ou séparées par des virgules ou des points-virgules"></textarea>
                 <p class="helper-text">
                   Une Alerte ID peut être enregistrée avec plusieurs communes. Utilisez une ligne par commune dans le fichier CSV.
                 </p>
               </div>
 
-              <div class="form-group">
-                <label for="alertActive">Statut</label>
-                <select id="alertActive">
-                  <option value="true">Active</option>
-                  <option value="false">Inactive</option>
-                </select>
+              <div class="form-group form-check">
+                <input id="alertActive" type="checkbox" checked>
+                <label for="alertActive">Alerte active</label>
               </div>
 
+              <div id="alertMessage" class="message hidden" role="status" aria-live="polite"></div>
+
               <div class="button-row">
-                <button type="submit" class="button button-primary">Enregistrer</button>
-                <button id="resetAlertForm" type="button" class="button button-secondary">Annuler</button>
+                <button id="alertSubmitButton" type="submit" class="button button-primary">Enregistrer l’alerte</button>
+                <button id="resetAlertButton" type="button" class="button button-secondary">Annuler</button>
               </div>
             </form>
 
-            <div class="card form-card">
+            <form id="alertCsvForm" class="card form-card">
               <span class="eyebrow">Importation</span>
               <h2>Importer les Alertes ID</h2>
 
@@ -425,15 +436,18 @@
 
               <div class="form-group">
                 <label for="alertsCsvFile">Fichier CSV</label>
-                <input id="alertsCsvFile" type="file" accept=".csv,text/csv,.txt,text/plain">
+                <input id="alertCsvFile" type="file" accept=".csv,text/csv,.txt,text/plain">
               </div>
 
-              <button id="importAlertsButton" type="button" class="button button-primary button-full">
-                Importer les Alertes ID
-              </button>
+              <div class="button-row">
+                <button id="alertCsvPreviewButton" type="button" class="button button-secondary">Prévisualiser</button>
+                <button id="alertCsvImportButton" type="submit" class="button button-primary">Importer les Alertes ID</button>
+                <button id="resetAlertCsvButton" type="button" class="button button-secondary">Réinitialiser</button>
+              </div>
 
-              <div id="alertsImportMessage" class="message hidden" role="status" aria-live="polite"></div>
-            </div>
+              <div id="alertCsvMessage" class="message hidden" role="status" aria-live="polite"></div>
+              <div id="alertCsvPreview" class="csv-preview hidden" aria-live="polite"></div>
+            </form>
           </div>
 
           <div class="table-card">
@@ -455,7 +469,7 @@
           </div>
         </div>
 
-        <div id="adminDocumentsPanel" class="admin-panel">
+        <div id="admin-documents-panel" class="admin-tab-panel" role="tabpanel" hidden>
           <div class="admin-panel-heading">
             <div>
               <span class="eyebrow">Gestion documentaire</span>
@@ -473,13 +487,14 @@
                   <th>Alerte ID</th>
                   <th>Région</th>
                   <th>Commune</th>
+                  <th>Statut</th>
                   <th>Date de publication</th>
                   <th>Actions</th>
                 </tr>
               </thead>
 
               <tbody id="adminDocumentsTable">
-                <tr><td colspan="7">Chargement des documents...</td></tr>
+                <tr><td colspan="8">Chargement des documents...</td></tr>
               </tbody>
             </table>
           </div>
@@ -515,33 +530,10 @@
 
         <div id="loginMessage" class="message hidden" role="alert" aria-live="assertive"></div>
 
-        <button type="submit" class="button button-primary button-full">Se connecter</button>
-      </form>
-    </div>
-  </div>
-
-  <div id="replaceModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="replaceModalTitle">
-    <div class="modal-backdrop"></div>
-
-    <div class="modal-dialog">
-      <button id="closeReplaceModal" type="button" class="modal-close" aria-label="Fermer la fenêtre de remplacement">×</button>
-
-      <span class="eyebrow">Administration</span>
-      <h2 id="replaceModalTitle">Remplacer la fiche</h2>
-      <p class="modal-description">Le nouveau fichier remplacera le document actuellement associé à cette fiche.</p>
-
-      <form id="replaceDocumentForm">
-        <input id="replaceDocumentId" type="hidden">
-
-        <div class="form-group">
-          <label for="replacementFile">Nouveau fichier PDF</label>
-          <input id="replacementFile" type="file" accept=".pdf,application/pdf" required>
-          <p class="helper-text">Format PDF uniquement — taille maximale : 20 Mo.</p>
+        <div class="button-row">
+          <button type="submit" class="button button-primary">Se connecter</button>
+          <button id="cancelLoginButton" type="button" class="button button-secondary">Annuler</button>
         </div>
-
-        <div id="replaceMessage" class="message hidden" role="status" aria-live="polite"></div>
-
-        <button type="submit" class="button button-primary button-full">Confirmer le remplacement</button>
       </form>
     </div>
   </div>
@@ -562,6 +554,29 @@
     </div>
   </footer>
 
+    </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const tabButtons = document.querySelectorAll("[data-admin-tab]");
+      const tabPanels = document.querySelectorAll(".admin-tab-panel");
+      tabButtons.forEach(function (button) {
+        button.addEventListener("click", function () {
+          const target = button.dataset.adminTab;
+          tabButtons.forEach(function (item) {
+            const active = item === button;
+            item.classList.toggle("active", active);
+            item.setAttribute("aria-selected", String(active));
+          });
+          tabPanels.forEach(function (panel) {
+            const active = panel.id === "admin-" + target + "-panel";
+            panel.hidden = !active;
+            panel.classList.toggle("active", active);
+          });
+        });
+      });
+    });
+  </script>
   <script type="module" src="./app.js"></script>
 </body>
 </html>
