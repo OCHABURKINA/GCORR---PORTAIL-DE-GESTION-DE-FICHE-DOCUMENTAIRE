@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Portail GCORR de publication, de consultation et de gestion des fiches d’intervention de la Réponse Rapide au Burkina Faso.">
+  <meta name="description" content="Portail GCORR de publication, de consultation et de gestion des fiches d'intervention de la Réponse Rapide au Burkina Faso.">
   <meta name="author" content="Groupe de Coordination Opérationnelle de la Réponse Rapide — GCORR">
   <meta name="theme-color" content="#6cab3d">
 
@@ -335,21 +335,78 @@
               </div>
             </form>
 
-            <aside class="card form-card">
-              <span class="eyebrow">Information</span>
-              <h2>Gestion du référentiel</h2>
+            <form id="organizationsCsvForm" class="card form-card">
+              <span class="eyebrow">Importation</span>
+              <h2>Importer les organisations</h2>
+
               <p class="helper-text">
-                Ajoutez ou modifiez les organisations autorisées à publier des fiches.
-                Une organisation inactive ne sera plus proposée dans le formulaire public.
+                Cette fonctionnalité est réservée aux administrateurs.
+                Le fichier CSV doit contenir les colonnes suivantes :
               </p>
+
+              <pre class="csv-example">name,acronym,is_active
+OCADES Fada,OCADES,true
+NRC,NRC,true
+Action contre la Faim,ACF,true</pre>
+
               <div class="information-box">
-                <strong>Conseil</strong>
+                <strong>Format du statut</strong>
                 <p>
-                  Utilisez le nom officiel de l’organisation et un acronyme court
-                  pour faciliter la recherche.
+                  La colonne <code>is_active</code> accepte notamment :
+                  <code>true</code>, <code>false</code>, <code>1</code>,
+                  <code>0</code>, <code>oui</code> ou <code>non</code>.
                 </p>
               </div>
-            </aside>
+
+              <div class="form-group">
+                <label for="organizationsCsvFile">Fichier CSV</label>
+                <input
+                  id="organizationsCsvFile"
+                  type="file"
+                  accept=".csv,text/csv,.txt,text/plain,application/vnd.ms-excel"
+                  required
+                >
+              </div>
+
+              <div class="button-row">
+                <button
+                  id="organizationsCsvPreviewButton"
+                  type="button"
+                  class="button button-secondary"
+                >
+                  Prévisualiser
+                </button>
+
+                <button
+                  id="importOrganizationsButton"
+                  type="submit"
+                  class="button button-primary"
+                >
+                  Importer les organisations
+                </button>
+
+                <button
+                  id="resetOrganizationsCsvButton"
+                  type="button"
+                  class="button button-secondary"
+                >
+                  Réinitialiser
+                </button>
+              </div>
+
+              <div
+                id="organizationsImportMessage"
+                class="message hidden"
+                role="status"
+                aria-live="polite"
+              ></div>
+
+              <div
+                id="organizationsCsvPreview"
+                class="csv-preview hidden"
+                aria-live="polite"
+              ></div>
+            </form>
           </div>
 
           <div class="table-card">
@@ -417,11 +474,9 @@
 
               <p class="helper-text">Le fichier CSV doit contenir les trois colonnes suivantes :</p>
 
-              <pre class="csv-example">Alerte ID,Région,Communes
+              <pre class="csv-example">alerte_id,region,commune
 778_260625_KOUOUA,Nakambé,Ouargaye
-777_260615_SANPIB,Koulsé,Pibaoré
-777_260615_SANPIB,Koulsé,Korsimoro
-777_260615_SANPIB,Koulsé,Ziga</pre>
+777_260615_SANPIB,Koulsé,"Pibaoré; Korsimoro; Ziga"</pre>
 
               <div class="information-box">
                 <strong>Une alerte peut couvrir plusieurs communes</strong>
@@ -540,6 +595,7 @@
       <div class="footer-brand">
         <div class="footer-logos">
           <img src="./assets/images/logogcorr.png" alt="Logo GCORR" class="footer-logo footer-logo-gcorr">
+          <img src="./assets/images/ochalogo.png" alt="Logo OCHA" class="footer-logo footer-logo-ocha">
         </div>
       </div>
 
@@ -547,7 +603,6 @@
         <span>Portail de gestion des fiches d’intervention</span>
         <span>Support Technique - Unité IM OCHA Burkina Faso</span>
       </div>
-      <img src="./assets/images/ochalogo.png" alt="Logo OCHA" class="footer-logo footer-logo-ocha">
     </div>
   </footer>
 
