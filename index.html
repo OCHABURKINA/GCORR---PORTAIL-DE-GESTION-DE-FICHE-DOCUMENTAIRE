@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
   <meta charset="UTF-8">
 
@@ -10,25 +11,31 @@
 
   <meta
     name="description"
-    content="Espace de gestion des fiches d'interventions pour la publication et la consultation."
+    content="Portail GCORR de publication, de consultation et de gestion des fiches d'intervention de la Réponse Rapide au Burkina Faso."
   >
 
   <meta
     name="author"
-    content="Espace de gestion des fiches d'interventions - GCORR"
+    content="Groupe de Coordination Opérationnelle de la Réponse Rapide — GCORR"
   >
 
   <meta
     name="theme-color"
-    content="#175b86"
+    content="#6cab3d"
   >
 
-  <title>GCORR - Espace de gestion des fiches d'interventions</title>
+  <title>
+    GCORR — Gestion des fiches d’intervention
+  </title>
 
-  <!-- =====================================================
-       POLICES
-       ===================================================== -->
+  <!-- Icône du navigateur -->
+  <link
+    rel="icon"
+    type="image/png"
+    href="./assets/images/logo-gcorr.png"
+  >
 
+  <!-- Polices -->
   <link
     rel="preconnect"
     href="https://fonts.googleapis.com"
@@ -45,10 +52,7 @@
     rel="stylesheet"
   >
 
-  <!-- =====================================================
-       FEUILLE DE STYLE
-       ===================================================== -->
-
+  <!-- Feuille de style principale -->
   <link
     rel="stylesheet"
     href="./styles.css"
@@ -58,32 +62,43 @@
 <body>
 
   <!-- =====================================================
-       EN-TETE PRINCIPAL
+       EN-TÊTE PRINCIPAL
        ===================================================== -->
 
   <header class="main-header">
+
     <div class="container header-content">
+
+      <!-- Identité visuelle -->
 
       <button
         type="button"
         class="brand"
         data-view="home"
-        aria-label="Retour à l'accueil"
+        aria-label="Retour à la page d'accueil"
       >
-        <span class="brand-logo">
-          GCORR
-        </span>
+
+        <img
+          src="./assets/images/logo-gcorr.png"
+          alt="Logo du Groupe de Coordination Opérationnelle de la Réponse Rapide"
+          class="brand-logo-image"
+        >
 
         <span class="brand-text">
+
           <strong>
-            Espace de gestion des fiches d'interventions
+            Gestion des fiches d’intervention
           </strong>
 
           <small>
-            Gestion des fiches d'interventions publiées
+            Groupe de Coordination Opérationnelle de la Réponse Rapide
           </small>
+
         </span>
+
       </button>
+
+      <!-- Navigation principale -->
 
       <nav
         class="main-navigation"
@@ -139,7 +154,9 @@
         </button>
 
       </nav>
+
     </div>
+
   </header>
 
   <!-- =====================================================
@@ -158,25 +175,41 @@
     >
 
       <div class="hero">
+
         <div class="container hero-grid">
 
           <div class="hero-content">
 
+            <div class="hero-logo">
+
+              <img
+                src="./assets/images/logo-gcorr.png"
+                alt="GCORR — Groupe de Coordination Opérationnelle de la Réponse Rapide"
+              >
+
+            </div>
+
             <span class="eyebrow">
-              Groupe de Coordination Opérationnelle de la Réponse Rapide
+              Réponse rapide au Burkina Faso
             </span>
 
             <h1>
-              Publier, centraliser et consulter les Fiches
-              d'interventions en toute simplicité
+              Centraliser, publier et consulter les fiches
+              d’intervention de la Réponse Rapide
             </h1>
 
             <p>
-              Le portail permet aux organisations de publier
-              leurs fiches d'interventions PDF en sélectionnant une organisation
-              et une Alerte ID. Les fiches publiées peuvent
-              ensuite être recherchés, consultés et téléchargés
-              librement.
+              Ce portail permet aux organisations membres du GCORR de
+              publier leurs fiches d’intervention en format PDF, en les
+              associant à une organisation, une alerte, un secteur et une
+              commune d’intervention.
+            </p>
+
+            <p>
+              Les documents publiés peuvent ensuite être recherchés,
+              consultés et téléchargés afin d’améliorer la coordination,
+              la traçabilité des interventions et le partage de
+              l’information opérationnelle.
             </p>
 
             <div class="hero-actions">
@@ -198,7 +231,10 @@
               </button>
 
             </div>
+
           </div>
+
+          <!-- Carte explicative -->
 
           <aside class="hero-card">
 
@@ -207,16 +243,21 @@
             </span>
 
             <h2>
-              Publication rapide
+              Publication simplifiée
             </h2>
 
+            <p>
+              Publiez une fiche d’intervention en quelques étapes.
+            </p>
+
             <ol>
+
               <li>
-                Sélectionner l'organisation
+                Sélectionner l’organisation
               </li>
 
               <li>
-                Sélectionner l'Alerte ID
+                Sélectionner l’Alerte ID
               </li>
 
               <li>
@@ -228,42 +269,54 @@
               </li>
 
               <li>
-                Publier la fiche
+                Confirmer la publication
               </li>
+
             </ol>
 
           </aside>
 
         </div>
+
       </div>
+
+      <!-- Statistiques -->
 
       <div class="container statistics-section">
 
         <div class="section-heading">
 
           <span class="eyebrow">
-            Vue d'ensemble
+            Vue d’ensemble
           </span>
 
           <h2>
             Indicateurs du portail
           </h2>
 
+          <p>
+            Aperçu dynamique des fiches et des structures enregistrées
+            dans la plateforme.
+          </p>
+
         </div>
 
         <div class="statistics-grid">
 
           <article class="stat-card">
+
             <span>
-              Documents publiés
+              Fiches publiées
             </span>
 
             <strong id="documentsCount">
               0
             </strong>
+
           </article>
 
           <article class="stat-card">
+
             <span>
               Organisations représentées
             </span>
@@ -271,9 +324,11 @@
             <strong id="organizationsCount">
               0
             </strong>
+
           </article>
 
           <article class="stat-card">
+
             <span>
               Alertes documentées
             </span>
@@ -281,9 +336,11 @@
             <strong id="alertsCount">
               0
             </strong>
+
           </article>
 
           <article class="stat-card">
+
             <span>
               Communes couvertes
             </span>
@@ -291,9 +348,11 @@
             <strong id="communesCount">
               0
             </strong>
+
           </article>
 
         </div>
+
       </div>
 
     </section>
@@ -314,17 +373,17 @@
           <div>
 
             <span class="eyebrow">
-             Espace de gestion des fiches d'interventions
+              Répertoire documentaire
             </span>
 
             <h1>
-              Documents publiés
+              Fiches d’intervention publiées
             </h1>
 
             <p>
-              Consultez les fiches publiées et utilisez les
-              filtres pour rechercher un document par organisation,
-              Alerte ID, secteur ou commune.
+              Consultez les fiches publiées et utilisez les filtres
+              pour rechercher un document par organisation, Alerte ID,
+              secteur ou commune.
             </p>
 
           </div>
@@ -349,13 +408,13 @@
               for="documentSearch"
               class="visually-hidden"
             >
-              Rechercher un document
+              Rechercher une fiche
             </label>
 
             <input
               id="documentSearch"
               type="search"
-              placeholder="Rechercher un document..."
+              placeholder="Rechercher une fiche..."
               autocomplete="off"
             >
 
@@ -371,9 +430,11 @@
             </label>
 
             <select id="filterOrganization">
+
               <option value="">
                 Toutes les organisations
               </option>
+
             </select>
 
           </div>
@@ -388,9 +449,11 @@
             </label>
 
             <select id="filterAlert">
+
               <option value="">
                 Toutes les alertes
               </option>
+
             </select>
 
           </div>
@@ -405,9 +468,11 @@
             </label>
 
             <select id="filterSector">
+
               <option value="">
                 Tous les secteurs
               </option>
+
             </select>
 
           </div>
@@ -422,9 +487,11 @@
             </label>
 
             <select id="filterCommune">
+
               <option value="">
                 Toutes les communes
               </option>
+
             </select>
 
           </div>
@@ -459,7 +526,7 @@
     </section>
 
     <!-- ===================================================
-         VUE : PUBLICATION PUBLIQUE
+         VUE : PUBLICATION
          =================================================== -->
 
     <section
@@ -474,18 +541,17 @@
           <div>
 
             <span class="eyebrow">
-              Publication publique
+              Publication d’une fiche
             </span>
 
             <h1>
-              Publier une fiche
+              Publier une fiche d’intervention
             </h1>
 
             <p>
-              La publication est libre d'accès. Sélectionnez
-              votre organisation et l'Alerte ID concernée.
-              Le secteur et la commune seront renseignés
-              automatiquement.
+              Sélectionnez votre organisation et l’Alerte ID concernée.
+              Le secteur et la commune seront renseignés automatiquement
+              à partir du référentiel du portail.
             </p>
 
           </div>
@@ -505,17 +571,24 @@
             <div class="form-group">
 
               <label for="publishOrganization">
+
                 Organisation
-                <span aria-hidden="true">*</span>
+
+                <span aria-hidden="true">
+                  *
+                </span>
+
               </label>
 
               <select
                 id="publishOrganization"
                 required
               >
+
                 <option value="">
                   Sélectionner une organisation
                 </option>
+
               </select>
 
             </div>
@@ -523,8 +596,13 @@
             <div class="form-group">
 
               <label for="publishAlert">
+
                 Alerte ID
-                <span aria-hidden="true">*</span>
+
+                <span aria-hidden="true">
+                  *
+                </span>
+
               </label>
 
               <select
@@ -532,9 +610,11 @@
                 required
                 disabled
               >
+
                 <option value="">
-                  Sélectionner d'abord l'organisation
+                  Sélectionner d’abord l’organisation
                 </option>
+
               </select>
 
             </div>
@@ -551,7 +631,7 @@
                   id="publishSector"
                   type="text"
                   readonly
-                  placeholder="Rempli automatiquement"
+                  placeholder="Renseigné automatiquement"
                 >
 
               </div>
@@ -566,7 +646,7 @@
                   id="publishCommune"
                   type="text"
                   readonly
-                  placeholder="Remplie automatiquement"
+                  placeholder="Renseignée automatiquement"
                 >
 
               </div>
@@ -576,8 +656,13 @@
             <div class="form-group">
 
               <label for="publishFile">
+
                 Fichier PDF
-                <span aria-hidden="true">*</span>
+
+                <span aria-hidden="true">
+                  *
+                </span>
+
               </label>
 
               <label
@@ -590,7 +675,7 @@
                 </strong>
 
                 <span>
-                  Cliquez ici pour choisir le document
+                  Cliquez dans cette zone pour choisir votre document
                 </span>
 
                 <span>
@@ -641,11 +726,13 @@
                 aria-valuemin="0"
                 aria-valuemax="100"
               >
+
                 <div
                   id="publishProgressBar"
                   class="progress-bar"
                 >
                 </div>
+
               </div>
 
             </div>
@@ -683,6 +770,7 @@
             <dl>
 
               <div>
+
                 <dt>
                   Organisation
                 </dt>
@@ -690,9 +778,11 @@
                 <dd id="summaryOrganization">
                   —
                 </dd>
+
               </div>
 
               <div>
+
                 <dt>
                   Alerte ID
                 </dt>
@@ -700,9 +790,11 @@
                 <dd id="summaryAlert">
                   —
                 </dd>
+
               </div>
 
               <div>
+
                 <dt>
                   Secteur
                 </dt>
@@ -710,9 +802,11 @@
                 <dd id="summarySector">
                   —
                 </dd>
+
               </div>
 
               <div>
+
                 <dt>
                   Commune
                 </dt>
@@ -720,9 +814,11 @@
                 <dd id="summaryCommune">
                   —
                 </dd>
+
               </div>
 
               <div>
+
                 <dt>
                   Fichier
                 </dt>
@@ -730,6 +826,7 @@
                 <dd id="summaryFile">
                   —
                 </dd>
+
               </div>
 
             </dl>
@@ -737,12 +834,12 @@
             <div class="information-box">
 
               <strong>
-                Important
+                Information importante
               </strong>
 
               <p>
-                Après publication, seul un administrateur
-                pourra remplacer ou supprimer une fiche d'intervention.
+                Après sa publication, une fiche peut uniquement être
+                remplacée ou supprimée par un administrateur autorisé.
               </p>
 
             </div>
@@ -779,15 +876,15 @@
             </h1>
 
             <p id="adminIdentity">
-              Gestion des organisations, des Alertes ID et
-              des fiches d'interventions publiées.
+              Gestion des organisations, des Alertes ID et des
+              fiches d’intervention publiées.
             </p>
 
           </div>
 
         </div>
 
-        <!-- Onglets d'administration -->
+        <!-- Onglets d’administration -->
 
         <div
           class="admin-tabs"
@@ -858,8 +955,13 @@
               <div class="form-group">
 
                 <label for="organizationName">
-                  Nom de l'organisation
-                  <span aria-hidden="true">*</span>
+
+                  Nom de l’organisation
+
+                  <span aria-hidden="true">
+                    *
+                  </span>
+
                 </label>
 
                 <input
@@ -894,6 +996,7 @@
                 </label>
 
                 <select id="organizationActive">
+
                   <option value="true">
                     Active
                   </option>
@@ -901,6 +1004,7 @@
                   <option value="false">
                     Inactive
                   </option>
+
                 </select>
 
               </div>
@@ -926,7 +1030,7 @@
 
             </form>
 
-            <!-- Import organisations -->
+            <!-- Importation des organisations -->
 
             <div class="card form-card">
 
@@ -986,7 +1090,9 @@
             <table>
 
               <thead>
+
                 <tr>
+
                   <th>
                     Organisation
                   </th>
@@ -1002,15 +1108,21 @@
                   <th>
                     Actions
                   </th>
+
                 </tr>
+
               </thead>
 
               <tbody id="adminOrganizationsTable">
+
                 <tr>
+
                   <td colspan="4">
                     Chargement des organisations...
                   </td>
+
                 </tr>
+
               </tbody>
 
             </table>
@@ -1053,8 +1165,13 @@
               <div class="form-group">
 
                 <label for="alertCode">
+
                   Alerte ID
-                  <span aria-hidden="true">*</span>
+
+                  <span aria-hidden="true">
+                    *
+                  </span>
+
                 </label>
 
                 <input
@@ -1070,8 +1187,13 @@
               <div class="form-group">
 
                 <label for="alertSector">
+
                   Secteur
-                  <span aria-hidden="true">*</span>
+
+                  <span aria-hidden="true">
+                    *
+                  </span>
+
                 </label>
 
                 <input
@@ -1087,8 +1209,13 @@
               <div class="form-group">
 
                 <label for="alertCommune">
+
                   Commune
-                  <span aria-hidden="true">*</span>
+
+                  <span aria-hidden="true">
+                    *
+                  </span>
+
                 </label>
 
                 <input
@@ -1138,17 +1265,24 @@
               <div class="form-group">
 
                 <label for="alertOrganization">
+
                   Organisation associée
-                  <span aria-hidden="true">*</span>
+
+                  <span aria-hidden="true">
+                    *
+                  </span>
+
                 </label>
 
                 <select
                   id="alertOrganization"
                   required
                 >
+
                   <option value="">
                     Sélectionner une organisation
                   </option>
+
                 </select>
 
               </div>
@@ -1160,6 +1294,7 @@
                 </label>
 
                 <select id="alertActive">
+
                   <option value="true">
                     Active
                   </option>
@@ -1167,6 +1302,7 @@
                   <option value="false">
                     Inactive
                   </option>
+
                 </select>
 
               </div>
@@ -1192,7 +1328,7 @@
 
             </form>
 
-            <!-- Import alertes -->
+            <!-- Importation des alertes -->
 
             <div class="card form-card">
 
@@ -1252,7 +1388,9 @@
             <table>
 
               <thead>
+
                 <tr>
+
                   <th>
                     Alerte ID
                   </th>
@@ -1276,15 +1414,21 @@
                   <th>
                     Actions
                   </th>
+
                 </tr>
+
               </thead>
 
               <tbody id="adminAlertsTable">
+
                 <tr>
+
                   <td colspan="6">
                     Chargement des Alertes ID...
                   </td>
+
                 </tr>
+
               </tbody>
 
             </table>
@@ -1311,12 +1455,12 @@
               </span>
 
               <h2>
-                Documents publiés
+                Fiches publiées
               </h2>
 
               <p>
-                L'administrateur peut remplacer ou supprimer
-                les documents publiés par les utilisateurs.
+                L’administrateur peut remplacer ou supprimer les
+                fiches publiées par les utilisateurs.
               </p>
 
             </div>
@@ -1328,7 +1472,9 @@
             <table>
 
               <thead>
+
                 <tr>
+
                   <th>
                     Fichier
                   </th>
@@ -1352,15 +1498,21 @@
                   <th>
                     Actions
                   </th>
+
                 </tr>
+
               </thead>
 
               <tbody id="adminDocumentsTable">
+
                 <tr>
+
                   <td colspan="6">
                     Chargement des documents...
                   </td>
+
                 </tr>
+
               </tbody>
 
             </table>
@@ -1401,6 +1553,16 @@
         ×
       </button>
 
+      <div class="modal-brand">
+
+        <img
+          src="./assets/images/logo-gcorr.png"
+          alt="Logo GCORR"
+          class="modal-logo"
+        >
+
+      </div>
+
       <span class="eyebrow">
         Accès sécurisé
       </span>
@@ -1410,7 +1572,7 @@
       </h2>
 
       <p class="modal-description">
-        Utilisez le compte administrateur créé dans
+        Utilisez un compte administrateur enregistré dans
         Supabase Authentication.
       </p>
 
@@ -1419,7 +1581,7 @@
         <div class="form-group">
 
           <label for="adminEmail">
-            Adresse e-mail
+            Adresse électronique
           </label>
 
           <input
@@ -1470,7 +1632,7 @@
   </div>
 
   <!-- =====================================================
-       MODALE : REMPLACEMENT D'UN DOCUMENT
+       MODALE : REMPLACEMENT D’UN DOCUMENT
        ===================================================== -->
 
   <div
@@ -1500,7 +1662,7 @@
       </span>
 
       <h2 id="replaceModalTitle">
-        Remplacer le document
+        Remplacer la fiche
       </h2>
 
       <p class="modal-description">
@@ -1529,7 +1691,7 @@
           >
 
           <p class="helper-text">
-            Format PDF uniquement, taille maximale de 20 Mo.
+            Format PDF uniquement — taille maximale : 20 Mo.
           </p>
 
         </div>
@@ -1563,31 +1725,45 @@
 
     <div class="container footer-content">
 
-      <div>
+      <div class="footer-brand">
 
-        <strong>
-          Espace de gestion des fiches d'interventions
-        </strong>
+        <img
+          src="./assets/images/logo-gcorr.png"
+          alt="Logo GCORR"
+          class="footer-logo"
+        >
 
-        <span>
-          Publication, consultation et gestion des fiches d'intervetions
-        </span>
+        <div>
+
+          <strong>
+            GCORR
+          </strong>
+
+          <span>
+            Groupe de Coordination Opérationnelle de la Réponse Rapide
+          </span>
+
+        </div>
 
       </div>
 
-      <div>
+      <div class="footer-information">
+
+        <span>
+          Portail de gestion des fiches d’intervention
+        </span>
+
         <span>
           Propulsé par Supabase et GitHub Pages
         </span>
+
       </div>
 
     </div>
 
   </footer>
 
-  <!-- =====================================================
-       JAVASCRIPT PRINCIPAL
-       ===================================================== -->
+  <!-- JavaScript principal -->
 
   <script
     type="module"
@@ -1595,4 +1771,5 @@
   ></script>
 
 </body>
+
 </html>
