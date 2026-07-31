@@ -1882,3 +1882,65 @@ tbody tr:last-child td {
     font-size: 30px;
   }
 }
+/*==================================================
+LOGO HEADER
+==================================================*/
+
+.brand{
+    display:flex;
+    align-items:center;
+    gap:18px;
+    background:none;
+    border:none;
+    cursor:pointer;
+}
+
+.brand-logo-image{
+    height:70px;
+    width:auto;
+    object-fit:contain;
+}
+
+.brand-text strong{
+    display:block;
+    font-size:1.15rem;
+    color:#175b86;
+    font-weight:700;
+}
+
+.brand-text small{
+    display:block;
+    color:#5d6775;
+    margin-top:4px;
+}
+
+
+/*==================================================
+LOGO HERO
+==================================================*/
+
+.hero-logo{
+    margin-bottom:25px;
+}
+
+.hero-logo img{
+    width:380px;
+    max-width:100%;
+    height:auto;
+}
+
+
+/*==================================================
+FOOTER
+==================================================*/
+
+.footer-brand{
+    display:flex;
+    align-items:center;
+    gap:18px;
+}
+
+.footer-logo{
+    height:60px;
+    width:auto;
+}
