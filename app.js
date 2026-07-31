@@ -7,7 +7,7 @@ import {
 } from "./config.js";
 
 /* ==========================================================
-   1. INITIALISATION SUPABASE
+   1. INITIALISATION DU CLIENT SUPABASE
    ========================================================== */
 
 const supabase = createClient(
@@ -16,13 +16,16 @@ const supabase = createClient(
   {
     auth: {
       persistSession:
-        CONFIG.AUTH?.PERSIST_SESSION ?? true,
+        CONFIG.AUTH?.PERSIST_SESSION ??
+        true,
 
       autoRefreshToken:
-        CONFIG.AUTH?.AUTO_REFRESH_TOKEN ?? true,
+        CONFIG.AUTH?.AUTO_REFRESH_TOKEN ??
+        true,
 
       detectSessionInUrl:
-        CONFIG.AUTH?.DETECT_SESSION_IN_URL ?? true,
+        CONFIG.AUTH?.DETECT_SESSION_IN_URL ??
+        true,
     },
   }
 );
@@ -49,7 +52,12 @@ const state = {
   selectedPublishCommune: null,
 
   initialized: false,
+  eventsInitialized: false,
   authenticationListenerInitialized: false,
+
+  organizationImportInProgress: false,
+  alertImportInProgress: false,
+  documentPublicationInProgress: false,
 };
 
 /* ==========================================================
@@ -66,8 +74,14 @@ function getElements(selector) {
   );
 }
 
+function elementExists(id) {
+  return Boolean(
+    getElement(id)
+  );
+}
+
 /* ==========================================================
-   4. SÉCURISATION DU HTML
+   4. SÉCURISATION DES CONTENUS HTML
    ========================================================== */
 
 function escapeHtml(value) {
@@ -105,7 +119,9 @@ function normalizeHeader(value) {
     )
     .trim()
     .toLowerCase()
-    .replace(/[\s-]+/g, "_");
+    .replace(/[\s\-./]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
 }
 
 function normalizeAlertCodeKey(value) {
@@ -134,7 +150,28 @@ function slugify(value) {
 }
 
 /* ==========================================================
-   6. OUTILS FICHIERS
+   6. GÉNÉRATION D’UN IDENTIFIANT LOCAL
+   ========================================================== */
+
+function generateUniqueId() {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID ===
+      "function"
+  ) {
+    return crypto.randomUUID();
+  }
+
+  return [
+    Date.now(),
+    Math.random()
+      .toString(36)
+      .slice(2),
+  ].join("-");
+}
+
+/* ==========================================================
+   7. OUTILS POUR LES FICHIERS
    ========================================================== */
 
 function sanitizeFileName(fileName) {
@@ -191,7 +228,8 @@ function formatFileSize(bytes) {
 
   while (
     value >= 1024 &&
-    unitIndex < units.length - 1
+    unitIndex <
+      units.length - 1
   ) {
     value /= 1024;
     unitIndex += 1;
@@ -202,7 +240,9 @@ function formatFileSize(bytes) {
       ? 0
       : 1;
 
-  return `${value.toFixed(decimals)} ${units[unitIndex]}`;
+  return `${value.toFixed(
+    decimals
+  )} ${units[unitIndex]}`;
 }
 
 function validatePdf(file) {
@@ -249,12 +289,14 @@ function validatePdf(file) {
     Number.isFinite(
       maximumFileSize
     ) &&
+    maximumFileSize > 0 &&
     file.size >
       maximumFileSize
   ) {
     throw new Error(
-      CONFIG.MESSAGES?.FILE_TOO_LARGE ||
-      "La taille maximale autorisée est de 20 Mo."
+      CONFIG.MESSAGES
+        ?.FILE_TOO_LARGE ||
+      "La taille maximale autorisée est dépassée."
     );
   }
 }
@@ -272,23 +314,25 @@ function validateCsvFile(file) {
       .pop()
       ?.toLowerCase();
 
-  const allowedExtensions = [
+  const acceptedExtensions = [
     "csv",
     "txt",
   ];
 
-  const allowedMimeTypes = [
+  const acceptedMimeTypes = [
     "text/csv",
     "text/plain",
+    "application/csv",
     "application/vnd.ms-excel",
+    "application/octet-stream",
     "",
   ];
 
   if (
-    !allowedExtensions.includes(
+    !acceptedExtensions.includes(
       extension
     ) &&
-    !allowedMimeTypes.includes(
+    !acceptedMimeTypes.includes(
       file.type
     )
   ) {
@@ -296,10 +340,16 @@ function validateCsvFile(file) {
       "Le fichier sélectionné doit être au format CSV ou TXT."
     );
   }
+
+  if (file.size <= 0) {
+    throw new Error(
+      "Le fichier CSV sélectionné est vide."
+    );
+  }
 }
 
 /* ==========================================================
-   7. DATES
+   8. FORMATAGE DES DATES
    ========================================================== */
 
 function formatDate(value) {
@@ -332,7 +382,7 @@ function formatDate(value) {
 }
 
 /* ==========================================================
-   8. MESSAGES
+   9. AFFICHAGE DES MESSAGES
    ========================================================== */
 
 function showMessage(
@@ -353,6 +403,13 @@ function showMessage(
   element.classList.remove(
     "hidden"
   );
+
+  element.setAttribute(
+    "aria-live",
+    type === "error"
+      ? "assertive"
+      : "polite"
+  );
 }
 
 function hideMessage(element) {
@@ -361,12 +418,38 @@ function hideMessage(element) {
   }
 
   element.textContent = "";
+
   element.className =
     "message hidden";
 }
 
+function getErrorMessage(
+  error,
+  fallbackMessage
+) {
+  if (
+    typeof error === "string"
+  ) {
+    return error;
+  }
+
+  if (
+    error?.message
+  ) {
+    return error.message;
+  }
+
+  if (
+    error?.error_description
+  ) {
+    return error.error_description;
+  }
+
+  return fallbackMessage;
+}
+
 /* ==========================================================
-   9. BOUTONS DE CHARGEMENT
+   10. GESTION DES BOUTONS EN COURS DE TRAITEMENT
    ========================================================== */
 
 function setButtonLoading(
@@ -380,13 +463,16 @@ function setButtonLoading(
 
   if (isLoading) {
     if (
-      !button.dataset.originalText
+      !button.dataset
+        .originalText
     ) {
-      button.dataset.originalText =
+      button.dataset
+        .originalText =
         button.textContent.trim();
     }
 
     button.disabled = true;
+
     button.textContent =
       loadingText;
 
@@ -401,7 +487,8 @@ function setButtonLoading(
   button.disabled = false;
 
   button.textContent =
-    button.dataset.originalText ||
+    button.dataset
+      .originalText ||
     button.textContent;
 
   button.removeAttribute(
@@ -410,7 +497,7 @@ function setButtonLoading(
 }
 
 /* ==========================================================
-   10. OUTILS DE COLLECTION
+   11. OUTILS POUR LES COLLECTIONS
    ========================================================== */
 
 function uniqueValues(values) {
@@ -420,7 +507,9 @@ function uniqueValues(values) {
   values
     .map(
       (value) =>
-        String(value ?? "").trim()
+        String(
+          value ?? ""
+        ).trim()
     )
     .filter(Boolean)
     .forEach(
@@ -429,7 +518,9 @@ function uniqueValues(values) {
           normalizeText(value);
 
         if (
-          !valuesMap.has(key)
+          !valuesMap.has(
+            key
+          )
         ) {
           valuesMap.set(
             key,
@@ -447,17 +538,42 @@ function uniqueValues(values) {
         b,
         "fr",
         {
-          sensitivity: "base",
+          sensitivity:
+            "base",
         }
       )
   );
 }
 
+function chunkArray(
+  values,
+  chunkSize = 100
+) {
+  const chunks = [];
+
+  for (
+    let index = 0;
+    index < values.length;
+    index += chunkSize
+  ) {
+    chunks.push(
+      values.slice(
+        index,
+        index + chunkSize
+      )
+    );
+  }
+
+  return chunks;
+}
+
 /* ==========================================================
-   11. URL PUBLIQUE SUPABASE STORAGE
+   12. URL PUBLIQUE SUPABASE STORAGE
    ========================================================== */
 
-function getPublicUrl(storagePath) {
+function getPublicUrl(
+  storagePath
+) {
   if (!storagePath) {
     return "";
   }
@@ -476,7 +592,7 @@ function getPublicUrl(storagePath) {
 }
 
 /* ==========================================================
-   12. RECHERCHE DANS L’ÉTAT GLOBAL
+   13. RECHERCHE DANS L’ÉTAT GLOBAL
    ========================================================== */
 
 function getOrganizationById(
@@ -509,11 +625,13 @@ function getAlertById(alertId) {
   return (
     state.alerts.find(
       (item) =>
-        item.id === alertId
+        item.id ===
+        alertId
     ) ||
     state.adminAlerts.find(
       (item) =>
-        item.id === alertId
+        item.id ===
+        alertId
     ) ||
     null
   );
@@ -581,29 +699,48 @@ function getAlertCommunes(
   alertId,
   activeOnly = true
 ) {
-  return state.alertCommuneOptions.filter(
-    (item) => {
-      if (
-        item.alert_id !==
-        alertId
-      ) {
-        return false;
-      }
+  return state
+    .alertCommuneOptions
+    .filter(
+      (item) => {
+        if (
+          item.alert_id !==
+          alertId
+        ) {
+          return false;
+        }
 
-      if (!activeOnly) {
-        return true;
-      }
+        if (!activeOnly) {
+          return true;
+        }
 
-      return (
-        item.alert_is_active !== false &&
-        item.alert_commune_is_active !== false
-      );
-    }
-  );
+        return (
+          item.alert_is_active !==
+            false &&
+          item
+            .alert_commune_is_active !==
+            false
+        );
+      }
+    );
 }
 
 /* ==========================================================
-   13. NAVIGATION PRINCIPALE
+   14. PRÉVENTION DES SOUMISSIONS NATIVES
+   ========================================================== */
+
+/**
+ * Cette fonction empêche un formulaire HTML de recharger
+ * la page lorsqu’un traitement est piloté par JavaScript.
+ */
+function preventNativeFormSubmission(
+  event
+) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+}
+/* ==========================================================
+   15. NAVIGATION PRINCIPALE
    ========================================================== */
 
 function showView(viewName) {
@@ -674,10 +811,25 @@ function showView(viewName) {
             "Erreur de chargement de l’administration :",
             error
           );
+
+          showMessage(
+            getElement(
+              "adminGlobalMessage"
+            ),
+            getErrorMessage(
+              error,
+              "Impossible de charger les données administratives."
+            ),
+            "error"
+          );
         }
       );
   }
 }
+
+/* ==========================================================
+   16. INITIALISATION DE LA NAVIGATION
+   ========================================================== */
 
 function initializeNavigation() {
   getElements("[data-view]")
@@ -685,7 +837,11 @@ function initializeNavigation() {
       (element) => {
         element.addEventListener(
           "click",
-          () => {
+          (event) => {
+            preventNativeFormSubmission(
+              event
+            );
+
             const targetView =
               element.dataset.view;
 
@@ -701,7 +857,7 @@ function initializeNavigation() {
 }
 
 /* ==========================================================
-   14. ONGLETS ADMINISTRATIFS
+   17. AFFICHAGE D’UN ONGLET ADMINISTRATIF
    ========================================================== */
 
 function showAdminTab(tabName) {
@@ -730,6 +886,9 @@ function showAdminTab(tabName) {
         "aria-selected",
         String(active)
       );
+
+      button.tabIndex =
+        active ? 0 : -1;
     }
   );
 
@@ -749,24 +908,30 @@ function showAdminTab(tabName) {
     }
   );
 
-  if (
-    tabName === "organizations"
-  ) {
-    renderAdminOrganizations();
-  }
+  switch (tabName) {
+    case "organizations":
+      renderAdminOrganizations();
+      break;
 
-  if (
-    tabName === "alerts"
-  ) {
-    renderAdminAlerts();
-  }
+    case "alerts":
+      renderAdminAlerts();
+      break;
 
-  if (
-    tabName === "documents"
-  ) {
-    renderAdminDocuments();
+    case "documents":
+      renderAdminDocuments();
+      break;
+
+    default:
+      console.warn(
+        `Onglet administrateur inconnu : ${tabName}`
+      );
+      break;
   }
 }
+
+/* ==========================================================
+   18. INITIALISATION DES ONGLETS ADMINISTRATIFS
+   ========================================================== */
 
 function initializeAdminTabs() {
   getElements(
@@ -775,13 +940,83 @@ function initializeAdminTabs() {
     (button) => {
       button.addEventListener(
         "click",
-        () => {
+        (event) => {
+          preventNativeFormSubmission(
+            event
+          );
+
           const tabName =
             button.dataset.adminTab;
 
           if (tabName) {
             showAdminTab(
               tabName
+            );
+          }
+        }
+      );
+
+      button.addEventListener(
+        "keydown",
+        (event) => {
+          const tabButtons =
+            getElements(
+              "[data-admin-tab]"
+            );
+
+          const currentIndex =
+            tabButtons.indexOf(
+              button
+            );
+
+          if (
+            currentIndex < 0
+          ) {
+            return;
+          }
+
+          let nextIndex =
+            currentIndex;
+
+          if (
+            event.key ===
+            "ArrowRight"
+          ) {
+            nextIndex =
+              (
+                currentIndex + 1
+              ) %
+              tabButtons.length;
+          } else if (
+            event.key ===
+            "ArrowLeft"
+          ) {
+            nextIndex =
+              (
+                currentIndex -
+                1 +
+                tabButtons.length
+              ) %
+              tabButtons.length;
+          } else {
+            return;
+          }
+
+          event.preventDefault();
+
+          const nextButton =
+            tabButtons[nextIndex];
+
+          nextButton?.focus();
+
+          const nextTab =
+            nextButton
+              ?.dataset
+              ?.adminTab;
+
+          if (nextTab) {
+            showAdminTab(
+              nextTab
             );
           }
         }
@@ -793,15 +1028,18 @@ function initializeAdminTabs() {
     "organizations"
   );
 }
+
 /* ==========================================================
-   15. INITIALISATION DE L’AUTHENTIFICATION
+   19. INITIALISATION DE L’AUTHENTIFICATION
    ========================================================== */
 
 async function initializeAuthentication() {
   const {
     data,
     error,
-  } = await supabase.auth.getSession();
+  } =
+    await supabase.auth
+      .getSession();
 
   if (error) {
     console.error(
@@ -811,14 +1049,11 @@ async function initializeAuthentication() {
   }
 
   state.session =
-    data?.session || null;
+    data?.session ||
+    null;
 
   await checkAdminStatus();
 
-  /*
-   * Évite d'enregistrer plusieurs fois le même écouteur
-   * lorsque l'application est réinitialisée.
-   */
   if (
     state.authenticationListenerInitialized
   ) {
@@ -834,15 +1069,12 @@ async function initializeAuthentication() {
       session
     ) => {
       state.session =
-        session || null;
+        session ||
+        null;
 
       await checkAdminStatus();
 
       try {
-        /*
-         * Le changement de session peut modifier
-         * les droits de lecture des documents.
-         */
         await loadDocuments();
 
         if (state.isAdmin) {
@@ -863,7 +1095,7 @@ async function initializeAuthentication() {
 }
 
 /* ==========================================================
-   16. VÉRIFICATION DU RÔLE ADMINISTRATEUR
+   20. VÉRIFICATION DU RÔLE ADMINISTRATEUR
    ========================================================== */
 
 async function checkAdminStatus() {
@@ -907,16 +1139,18 @@ async function checkAdminStatus() {
   }
 
   state.adminProfile =
-    data || null;
+    data ||
+    null;
 
   state.isAdmin =
-    data?.role === "admin";
+    data?.role ===
+    "admin";
 
   updateAuthenticationInterface();
 }
 
 /* ==========================================================
-   17. MISE À JOUR DE L’INTERFACE D’AUTHENTIFICATION
+   21. MISE À JOUR DE L’INTERFACE D’AUTHENTIFICATION
    ========================================================== */
 
 function updateAuthenticationInterface() {
@@ -956,31 +1190,40 @@ function updateAuthenticationInterface() {
       "adminIdentity"
     );
 
-  if (!adminIdentity) {
-    return;
+  if (adminIdentity) {
+    if (state.isAdmin) {
+      const identity =
+        state.adminProfile
+          ?.full_name ||
+        state.session
+          ?.user
+          ?.email ||
+        "Administrateur";
+
+      adminIdentity.textContent =
+        `Connecté en tant que ${identity}.`;
+    } else {
+      adminIdentity.textContent =
+        "Gestion des organisations, des Alertes ID, des communes associées et des fiches publiées.";
+    }
   }
 
-  if (state.isAdmin) {
-    const identity =
-      state.adminProfile
-        ?.full_name ||
-      state.session
-        ?.user
-        ?.email ||
-      "Administrateur";
-
-    adminIdentity.textContent =
-      `Connecté en tant que ${identity}.`;
-
-    return;
+  if (
+    !state.isAdmin &&
+    getElement(
+      "adminView"
+    )?.classList.contains(
+      "active-view"
+    )
+  ) {
+    showView(
+      "home"
+    );
   }
-
-  adminIdentity.textContent =
-    "Gestion des organisations, des Alertes ID, des communes associées et des fiches publiées.";
 }
 
 /* ==========================================================
-   18. OUVERTURE DE LA MODALE DE CONNEXION
+   22. OUVERTURE DE LA MODALE DE CONNEXION
    ========================================================== */
 
 function openLoginModal() {
@@ -1006,6 +1249,12 @@ function openLoginModal() {
     "modal-open"
   );
 
+  hideMessage(
+    getElement(
+      "loginMessage"
+    )
+  );
+
   window.setTimeout(
     () => {
       getElement(
@@ -1017,7 +1266,7 @@ function openLoginModal() {
 }
 
 /* ==========================================================
-   19. FERMETURE DE LA MODALE DE CONNEXION
+   23. FERMETURE DE LA MODALE DE CONNEXION
    ========================================================== */
 
 function closeLoginModal() {
@@ -1051,17 +1300,19 @@ function closeLoginModal() {
 }
 
 /* ==========================================================
-   20. CONNEXION ADMINISTRATEUR
+   24. CONNEXION ADMINISTRATEUR
    ========================================================== */
 
 async function handleAdminLogin(
   event
 ) {
-  event.preventDefault();
+  preventNativeFormSubmission(
+    event
+  );
 
   const submitButton =
-    event.submitter ||
-    event.currentTarget
+    event?.submitter ||
+    event?.currentTarget
       ?.querySelector(
         'button[type="submit"]'
       );
@@ -1118,12 +1369,14 @@ async function handleAdminLogin(
     }
 
     state.session =
-      data?.session || null;
+      data?.session ||
+      null;
 
     await checkAdminStatus();
 
     if (!state.isAdmin) {
-      await supabase.auth.signOut();
+      await supabase.auth
+        .signOut();
 
       state.session = null;
 
@@ -1138,10 +1391,6 @@ async function handleAdminLogin(
 
     closeLoginModal();
 
-    /*
-     * Recharge les données publiques puis administratives
-     * avec les droits de la session authentifiée.
-     */
     await loadPublicReferenceData();
     await loadDocuments();
     await loadAdminData();
@@ -1149,11 +1398,17 @@ async function handleAdminLogin(
     showView(
       "admin"
     );
+
+    showAdminTab(
+      "organizations"
+    );
   } catch (error) {
     showMessage(
       messageElement,
-      error?.message ||
-      "Connexion impossible.",
+      getErrorMessage(
+        error,
+        "Connexion impossible."
+      ),
       "error"
     );
   } finally {
@@ -1165,14 +1420,21 @@ async function handleAdminLogin(
 }
 
 /* ==========================================================
-   21. DÉCONNEXION
+   25. DÉCONNEXION
    ========================================================== */
 
-async function handleLogout() {
+async function handleLogout(
+  event
+) {
+  preventNativeFormSubmission(
+    event
+  );
+
   const {
     error,
   } =
-    await supabase.auth.signOut();
+    await supabase.auth
+      .signOut();
 
   if (error) {
     window.alert(
@@ -1192,9 +1454,6 @@ async function handleLogout() {
 
   updateAuthenticationInterface();
 
-  /*
-   * Recharge les données comme visiteur public.
-   */
   try {
     await loadPublicReferenceData();
     await loadDocuments();
@@ -1209,9 +1468,8 @@ async function handleLogout() {
     "home"
   );
 }
-
 /* ==========================================================
-   22. CHARGEMENT DES ORGANISATIONS PUBLIQUES
+   26. CHARGEMENT DES ORGANISATIONS PUBLIQUES
    ========================================================== */
 
 async function loadPublicOrganizations() {
@@ -1251,7 +1509,7 @@ async function loadPublicOrganizations() {
 }
 
 /* ==========================================================
-   23. CHARGEMENT DES ALERTES PUBLIQUES
+   27. CHARGEMENT DES ALERTES ID PUBLIQUES
    ========================================================== */
 
 async function loadPublicAlerts() {
@@ -1275,7 +1533,7 @@ async function loadPublicAlerts() {
     .order(
       "alert_code",
       {
-        ascending: true,
+        ascending: false,
       }
     );
 
@@ -1293,11 +1551,11 @@ async function loadPublicAlerts() {
 }
 
 /* ==========================================================
-   24. CHARGEMENT DES COMMUNES PUBLIQUES
+   28. CHARGEMENT DES COMMUNES LIÉES AUX ALERTES
    ========================================================== */
 
 /**
- * La vue alert_commune_options doit contenir :
+ * La vue public.alert_commune_options doit idéalement exposer :
  *
  * - alert_commune_id
  * - alert_id
@@ -1307,16 +1565,13 @@ async function loadPublicAlerts() {
  * - alert_is_active
  * - alert_commune_is_active
  *
- * Cette fonction prévoit aussi un repli si les deux colonnes
- * de statut ne sont pas exposées par la vue.
+ * Une tentative de repli est prévue pour une vue plus simple.
  */
+
 async function loadPublicAlertCommuneOptions() {
   let data = null;
   let error = null;
 
-  /*
-   * Première tentative avec les colonnes de statut.
-   */
   const completeResult =
     await supabase
       .from(
@@ -1342,7 +1597,7 @@ async function loadPublicAlertCommuneOptions() {
       .order(
         "alert_code",
         {
-          ascending: true,
+          ascending: false,
         }
       )
       .order(
@@ -1359,11 +1614,12 @@ async function loadPublicAlertCommuneOptions() {
     completeResult.error;
 
   /*
-   * Repli compatible avec une vue simplifiée.
+   * Repli compatible avec une vue qui ne contient pas encore
+   * les colonnes alert_is_active et alert_commune_is_active.
    */
   if (error) {
     console.warn(
-      "La vue ne fournit pas toutes les colonnes de statut. Utilisation du mode compatible.",
+      "Chargement simplifié de la vue alert_commune_options :",
       error.message
     );
 
@@ -1382,7 +1638,7 @@ async function loadPublicAlertCommuneOptions() {
         .order(
           "alert_code",
           {
-            ascending: true,
+            ascending: false,
           }
         )
         .order(
@@ -1433,7 +1689,7 @@ async function loadPublicAlertCommuneOptions() {
 }
 
 /* ==========================================================
-   25. CHARGEMENT GLOBAL DES RÉFÉRENTIELS PUBLICS
+   29. CHARGEMENT GLOBAL DES RÉFÉRENTIELS PUBLICS
    ========================================================== */
 
 async function loadPublicReferenceData() {
@@ -1468,7 +1724,7 @@ async function loadPublicReferenceData() {
 }
 
 /* ==========================================================
-   26. REMPLISSAGE DES LISTES D’ORGANISATIONS
+   30. REMPLISSAGE DES LISTES D’ORGANISATIONS
    ========================================================== */
 
 function populateOrganizationSelects() {
@@ -1541,22 +1797,25 @@ function populateOrganizationSelects() {
         }
       );
 
-      if (
+      const valueStillExists =
         state.organizations.some(
           (organization) =>
             organization.id ===
             currentValue
-        )
-      ) {
+        );
+
+      if (valueStillExists) {
         select.value =
           currentValue;
+      } else {
+        select.value = "";
       }
     }
   );
 }
 
 /* ==========================================================
-   27. LISTE DES ALERTES POUR LA PUBLICATION
+   31. LISTE DES ALERTES POUR LA PUBLICATION
    ========================================================== */
 
 function populatePublishAlertSelect() {
@@ -1582,7 +1841,9 @@ function populatePublishAlertSelect() {
   defaultOption.value = "";
 
   defaultOption.textContent =
-    "Sélectionner une Alerte ID";
+    state.alerts.length > 0
+      ? "Sélectionner une Alerte ID"
+      : "Aucune Alerte ID disponible";
 
   select.appendChild(
     defaultOption
@@ -1612,20 +1873,23 @@ function populatePublishAlertSelect() {
   select.disabled =
     state.alerts.length === 0;
 
-  if (
+  const valueStillExists =
     state.alerts.some(
       (alertItem) =>
         alertItem.id ===
         currentValue
-    )
-  ) {
+    );
+
+  if (valueStillExists) {
     select.value =
       currentValue;
+  } else {
+    select.value = "";
   }
 }
 
 /* ==========================================================
-   28. FILTRE DES ALERTES
+   32. LISTE DES ALERTES POUR LE FILTRE DOCUMENTAIRE
    ========================================================== */
 
 function populateAlertFilters() {
@@ -1676,20 +1940,23 @@ function populateAlertFilters() {
     }
   );
 
-  if (
+  const valueStillExists =
     state.alerts.some(
       (alertItem) =>
         alertItem.alert_code ===
         currentValue
-    )
-  ) {
+    );
+
+  if (valueStillExists) {
     select.value =
       currentValue;
+  } else {
+    select.value = "";
   }
 }
 
 /* ==========================================================
-   29. LISTE DES COMMUNES SELON L’ALERTE
+   33. LISTE DES COMMUNES SELON L’ALERTE ID
    ========================================================== */
 
 function populatePublishCommuneSelect(
@@ -1703,6 +1970,9 @@ function populatePublishCommuneSelect(
   if (!select) {
     return;
   }
+
+  const currentValue =
+    select.value;
 
   select.innerHTML = "";
 
@@ -1734,7 +2004,8 @@ function populatePublishCommuneSelect(
     );
 
   if (
-    matchingCommunes.length === 0
+    matchingCommunes.length ===
+    0
   ) {
     const option =
       document.createElement(
@@ -1744,7 +2015,7 @@ function populatePublishCommuneSelect(
     option.value = "";
 
     option.textContent =
-      "Aucune commune disponible";
+      "Aucune commune disponible pour cette alerte";
 
     select.appendChild(
       option
@@ -1804,9 +2075,77 @@ function populatePublishCommuneSelect(
 
   select.disabled =
     false;
+
+  const valueStillExists =
+    matchingCommunes.some(
+      (item) =>
+        item.alert_commune_id ===
+        currentValue
+    );
+
+  if (valueStillExists) {
+    select.value =
+      currentValue;
+  } else {
+    select.value = "";
+  }
+}
+
+/* ==========================================================
+   34. MISE À JOUR DE LA RÉGION DE PUBLICATION
+   ========================================================== */
+
+function updatePublishRegion(
+  alertId
+) {
+  const regionInput =
+    getElement(
+      "publishRegion"
+    );
+
+  if (!regionInput) {
+    return;
+  }
+
+  const alertItem =
+    getAlertById(
+      alertId
+    );
+
+  regionInput.value =
+    alertItem?.region || "";
+}
+
+/* ==========================================================
+   35. RÉINITIALISATION DES COMMUNES DE PUBLICATION
+   ========================================================== */
+
+function resetPublishCommuneSelection() {
+  state.selectedPublishCommune =
+    null;
+
+  const communeSelect =
+    getElement(
+      "publishCommune"
+    );
+
+  if (!communeSelect) {
+    return;
+  }
+
+  communeSelect.innerHTML = `
+    <option value="">
+      Sélectionner d’abord une Alerte ID
+    </option>
+  `;
+
+  communeSelect.value = "";
+
+  communeSelect.disabled =
+    true;
 }
 /* ==========================================================
-   30. SÉLECTION DE L’ORGANISATION
+   36. CHANGEMENT DE L’ORGANISATION DE PUBLICATION
    ========================================================== */
 
 function handlePublishOrganizationChange() {
@@ -1814,7 +2153,7 @@ function handlePublishOrganizationChange() {
 }
 
 /* ==========================================================
-   31. SÉLECTION DE L’ALERTE ID
+   37. CHANGEMENT DE L’ALERTE ID
    ========================================================== */
 
 function handlePublishAlertChange() {
@@ -1831,16 +2170,9 @@ function handlePublishAlertChange() {
   state.selectedPublishCommune =
     null;
 
-  const regionInput =
-    getElement(
-      "publishRegion"
-    );
-
-  if (regionInput) {
-    regionInput.value =
-      state.selectedPublishAlert
-        ?.region || "";
-  }
+  updatePublishRegion(
+    alertId
+  );
 
   populatePublishCommuneSelect(
     alertId
@@ -1859,7 +2191,7 @@ function handlePublishAlertChange() {
 }
 
 /* ==========================================================
-   32. SÉLECTION DE LA COMMUNE
+   38. CHANGEMENT DE LA COMMUNE
    ========================================================== */
 
 function handlePublishCommuneChange() {
@@ -1891,22 +2223,33 @@ function handlePublishCommuneChange() {
       communeSelect.value = "";
     }
 
-    window.alert(
-      "La commune sélectionnée ne correspond pas à l’Alerte ID choisie."
+    showMessage(
+      getElement(
+        "publishMessage"
+      ),
+      "La commune sélectionnée ne correspond pas à l’Alerte ID choisie.",
+      "error"
     );
 
     updatePublishSummary();
+
     return;
   }
 
   state.selectedPublishCommune =
     selectedCommune;
 
+  hideMessage(
+    getElement(
+      "publishMessage"
+    )
+  );
+
   updatePublishSummary();
 }
 
 /* ==========================================================
-   33. SÉLECTION DU FICHIER PDF
+   39. CHANGEMENT DU FICHIER PDF
    ========================================================== */
 
 function handlePublishFileChange() {
@@ -1924,6 +2267,12 @@ function handlePublishFileChange() {
     fileInput
       ?.files?.[0];
 
+  hideMessage(
+    getElement(
+      "publishMessage"
+    )
+  );
+
   if (!selectedFileInfo) {
     updatePublishSummary();
     return;
@@ -1937,6 +2286,7 @@ function handlePublishFileChange() {
     );
 
     updatePublishSummary();
+
     return;
   }
 
@@ -1973,9 +2323,15 @@ function handlePublishFileChange() {
       "hidden"
     );
 
-    window.alert(
-      error?.message ||
-      "Le fichier sélectionné est invalide."
+    showMessage(
+      getElement(
+        "publishMessage"
+      ),
+      getErrorMessage(
+        error,
+        "Le fichier sélectionné est invalide."
+      ),
+      "error"
     );
   }
 
@@ -1983,7 +2339,7 @@ function handlePublishFileChange() {
 }
 
 /* ==========================================================
-   34. RÉCAPITULATIF DE LA PUBLICATION
+   40. MISE À JOUR DU RÉCAPITULATIF
    ========================================================== */
 
 function updatePublishSummary() {
@@ -1992,9 +2348,29 @@ function updatePublishSummary() {
       "publishOrganization"
     )?.value || "";
 
+  const alertId =
+    getElement(
+      "publishAlert"
+    )?.value || "";
+
+  const alertCommuneId =
+    getElement(
+      "publishCommune"
+    )?.value || "";
+
   const organization =
     getOrganizationById(
       organizationId
+    );
+
+  const alertOption =
+    getAlertById(
+      alertId
+    );
+
+  const communeOption =
+    getAlertCommuneById(
+      alertCommuneId
     );
 
   const file =
@@ -2002,67 +2378,50 @@ function updatePublishSummary() {
       "publishFile"
     )?.files?.[0];
 
-  const summaryOrganization =
-    getElement(
-      "summaryOrganization"
-    );
-
-  const summaryAlert =
-    getElement(
-      "summaryAlert"
-    );
-
-  const summaryRegion =
-    getElement(
-      "summaryRegion"
-    );
-
-  const summaryCommune =
-    getElement(
-      "summaryCommune"
-    );
-
-  const summaryFile =
-    getElement(
-      "summaryFile"
-    );
-
-  if (summaryOrganization) {
-    summaryOrganization.textContent =
+  const values = {
+    summaryOrganization:
       organization?.name ||
-      "—";
-  }
+      "—",
 
-  if (summaryAlert) {
-    summaryAlert.textContent =
-      state.selectedPublishAlert
-        ?.alert_code ||
-      "—";
-  }
+    summaryAlert:
+      alertOption?.alert_code ||
+      "—",
 
-  if (summaryRegion) {
-    summaryRegion.textContent =
-      state.selectedPublishAlert
-        ?.region ||
-      "—";
-  }
+    summaryRegion:
+      alertOption?.region ||
+      "—",
 
-  if (summaryCommune) {
-    summaryCommune.textContent =
-      state.selectedPublishCommune
-        ?.commune ||
-      "—";
-  }
+    summaryCommune:
+      communeOption?.commune ||
+      "—",
 
-  if (summaryFile) {
-    summaryFile.textContent =
+    summaryFile:
       file?.name ||
-      "—";
-  }
+      "—",
+  };
+
+  Object.entries(
+    values
+  ).forEach(
+    ([
+      elementId,
+      value,
+    ]) => {
+      const element =
+        getElement(
+          elementId
+        );
+
+      if (element) {
+        element.textContent =
+          value;
+      }
+    }
+  );
 }
 
 /* ==========================================================
-   35. BARRE DE PROGRESSION
+   41. BARRE DE PROGRESSION
    ========================================================== */
 
 function updatePublishProgress(
@@ -2165,7 +2524,7 @@ function resetPublishProgress() {
 }
 
 /* ==========================================================
-   36. CONSTRUCTION DU CHEMIN STORAGE
+   42. CONSTRUCTION DU CHEMIN STORAGE
    ========================================================== */
 
 function buildDocumentStoragePath({
@@ -2198,18 +2557,10 @@ function buildDocumentStoragePath({
       file.name
     );
 
-  const uniqueId =
-    typeof crypto?.randomUUID ===
-    "function"
-      ? crypto.randomUUID()
-      : Math.random()
-          .toString(36)
-          .slice(2);
-
   const uniqueFileName =
     [
       Date.now(),
-      uniqueId,
+      generateUniqueId(),
       safeFileName,
     ].join("-");
 
@@ -2222,7 +2573,7 @@ function buildDocumentStoragePath({
 }
 
 /* ==========================================================
-   37. VALIDATION DES INFORMATIONS DE PUBLICATION
+   43. VALIDATION DE LA PUBLICATION
    ========================================================== */
 
 function validatePublicationSelection({
@@ -2292,16 +2643,24 @@ function validatePublicationSelection({
 }
 
 /* ==========================================================
-   38. PUBLICATION DU DOCUMENT
+   44. PUBLICATION PUBLIQUE DU DOCUMENT
    ========================================================== */
 
 async function handlePublicPublication(
   event
 ) {
-  event.preventDefault();
+  preventNativeFormSubmission(
+    event
+  );
+
+  if (
+    state.documentPublicationInProgress
+  ) {
+    return;
+  }
 
   const submitButton =
-    event.submitter ||
+    event?.submitter ||
     getElement(
       "publishSubmitButton"
     );
@@ -2318,6 +2677,15 @@ async function handlePublicPublication(
   let uploadedStoragePath = "";
   let databaseRecordCreated =
     false;
+
+  state.documentPublicationInProgress =
+    true;
+
+  setButtonLoading(
+    submitButton,
+    true,
+    "Publication..."
+  );
 
   try {
     const organizationId =
@@ -2368,12 +2736,6 @@ async function handlePublicPublication(
     state.selectedPublishCommune =
       communeOption;
 
-    setButtonLoading(
-      submitButton,
-      true,
-      "Publication..."
-    );
-
     updatePublishProgress(
       10
     );
@@ -2388,10 +2750,6 @@ async function handlePublicPublication(
 
     uploadedStoragePath =
       storagePath;
-
-    /* ------------------------------------------------------
-       1. Chargement du fichier dans Supabase Storage
-       ------------------------------------------------------ */
 
     const {
       error: uploadError,
@@ -2424,10 +2782,6 @@ async function handlePublicPublication(
     updatePublishProgress(
       65
     );
-
-    /* ------------------------------------------------------
-       2. Enregistrement des métadonnées
-       ------------------------------------------------------ */
 
     const documentRecord = {
       organization_id:
@@ -2512,10 +2866,6 @@ async function handlePublicPublication(
       error
     );
 
-    /*
-     * Si le fichier a été chargé mais que la ligne
-     * documents n’a pas été créée, le fichier est supprimé.
-     */
     if (
       uploadedStoragePath &&
       !databaseRecordCreated
@@ -2540,11 +2890,16 @@ async function handlePublicPublication(
 
     showMessage(
       messageElement,
-      error?.message ||
-      "Impossible de publier la fiche.",
+      getErrorMessage(
+        error,
+        "Impossible de publier la fiche."
+      ),
       "error"
     );
   } finally {
+    state.documentPublicationInProgress =
+      false;
+
     setButtonLoading(
       submitButton,
       false
@@ -2558,7 +2913,7 @@ async function handlePublicPublication(
 }
 
 /* ==========================================================
-   39. RÉINITIALISATION DU FORMULAIRE DE PUBLICATION
+   45. RÉINITIALISATION DU FORMULAIRE DE PUBLICATION
    ========================================================== */
 
 function resetPublishForm(
@@ -2655,42 +3010,38 @@ function resetPublishForm(
   resetPublishProgress();
   updatePublishSummary();
 }
+
 /* ==========================================================
-   40. CHARGEMENT DES DOCUMENTS
+   46. CHARGEMENT DES DOCUMENTS
    ========================================================== */
 
 async function loadDocuments() {
-  let query = supabase
-    .from("documents")
-    .select(`
-      id,
-      organization_id,
-      alert_id,
-      alert_commune_id,
-      organization_name,
-      alert_code,
-      file_name,
-      storage_path,
-      file_size,
-      mime_type,
-      publication_status,
-      uploaded_by,
-      created_at,
-      updated_at
-    `)
-    .order(
-      "created_at",
-      {
-        ascending: false,
-      }
-    );
+  let query =
+    supabase
+      .from("documents")
+      .select(`
+        id,
+        organization_id,
+        alert_id,
+        alert_commune_id,
+        organization_name,
+        alert_code,
+        file_name,
+        storage_path,
+        file_size,
+        mime_type,
+        publication_status,
+        uploaded_by,
+        created_at,
+        updated_at
+      `)
+      .order(
+        "created_at",
+        {
+          ascending: false,
+        }
+      );
 
-  /*
-   * Les visiteurs publics ne voient que
-   * les documents publiés.
-   *
-   * Les administrateurs voient tous les statuts.
-   */
   if (!state.isAdmin) {
     query = query.eq(
       "publication_status",
@@ -2724,40 +3075,34 @@ async function loadDocuments() {
 }
 
 /* ==========================================================
-   41. ENRICHISSEMENT DES DOCUMENTS
+   47. ENRICHISSEMENT DES DOCUMENTS
    ========================================================== */
 
-/**
- * Ajoute aux documents :
- *
- * - la région ;
- * - la commune ;
- * - les statuts de l’alerte et de la commune.
- *
- * Les informations proviennent des référentiels publics
- * et administratifs déjà chargés.
- */
 function enrichDocuments(
   documents
 ) {
   const publicCommunesMap =
     new Map(
-      state.alertCommuneOptions.map(
-        (item) => [
-          item.alert_commune_id,
-          item,
-        ]
-      )
+      state
+        .alertCommuneOptions
+        .map(
+          (item) => [
+            item.alert_commune_id,
+            item,
+          ]
+        )
     );
 
   const adminCommunesMap =
     new Map(
-      state.adminAlertCommunes.map(
-        (item) => [
-          item.id,
-          item,
-        ]
-      )
+      state
+        .adminAlertCommunes
+        .map(
+          (item) => [
+            item.id,
+            item,
+          ]
+        )
     );
 
   const publicAlertsMap =
@@ -2784,13 +3129,17 @@ function enrichDocuments(
     (documentItem) => {
       const publicCommune =
         publicCommunesMap.get(
-          documentItem.alert_commune_id
-        ) || null;
+          documentItem
+            .alert_commune_id
+        ) ||
+        null;
 
       const adminCommune =
         adminCommunesMap.get(
-          documentItem.alert_commune_id
-        ) || null;
+          documentItem
+            .alert_commune_id
+        ) ||
+        null;
 
       const alertOption =
         publicAlertsMap.get(
@@ -2837,7 +3186,7 @@ function enrichDocuments(
 }
 
 /* ==========================================================
-   42. RÉENRICHISSEMENT DES DOCUMENTS
+   48. RÉENRICHISSEMENT DES DOCUMENTS
    ========================================================== */
 
 function refreshDocumentEnrichment() {
@@ -2856,7 +3205,7 @@ function refreshDocumentEnrichment() {
 }
 
 /* ==========================================================
-   43. FILTRAGE DES DOCUMENTS
+   49. FILTRAGE DES DOCUMENTS
    ========================================================== */
 
 function getFilteredDocuments() {
@@ -2884,9 +3233,6 @@ function getFilteredDocuments() {
 
   return state.documents.filter(
     (documentItem) => {
-      /*
-       * Protection complémentaire côté interface.
-       */
       if (
         !state.isAdmin &&
         documentItem
@@ -2900,7 +3246,8 @@ function getFilteredDocuments() {
         normalizeText(
           [
             documentItem.file_name,
-            documentItem.organization_name,
+            documentItem
+              .organization_name,
             documentItem.alert_code,
             documentItem.region,
             documentItem.commune,
@@ -2944,7 +3291,7 @@ function getFilteredDocuments() {
 }
 
 /* ==========================================================
-   44. AFFICHAGE DES DOCUMENTS PUBLICS
+   50. AFFICHAGE DES DOCUMENTS PUBLICS
    ========================================================== */
 
 function renderDocuments() {
@@ -2961,7 +3308,8 @@ function renderDocuments() {
     getFilteredDocuments()
       .filter(
         (item) =>
-          item.publication_status ===
+          item
+            .publication_status ===
           "published"
       );
 
@@ -2970,7 +3318,8 @@ function renderDocuments() {
   );
 
   if (
-    visibleDocuments.length === 0
+    visibleDocuments.length ===
+    0
   ) {
     container.innerHTML = `
       <div class="empty-state">
@@ -2999,7 +3348,7 @@ function renderDocuments() {
 }
 
 /* ==========================================================
-   45. TITRE DES RÉSULTATS
+   51. TITRE DES RÉSULTATS
    ========================================================== */
 
 function updateDocumentsResultTitle(
@@ -3026,7 +3375,7 @@ function updateDocumentsResultTitle(
 }
 
 /* ==========================================================
-   46. CARTE D’UN DOCUMENT
+   52. CARTE D’UN DOCUMENT
    ========================================================== */
 
 function createDocumentCard(
@@ -3104,9 +3453,7 @@ function createDocumentCard(
 
       <dl class="document-metadata">
         <div>
-          <dt>
-            Organisation
-          </dt>
+          <dt>Organisation</dt>
 
           <dd>
             ${escapeHtml(
@@ -3116,9 +3463,7 @@ function createDocumentCard(
         </div>
 
         <div>
-          <dt>
-            Alerte ID
-          </dt>
+          <dt>Alerte ID</dt>
 
           <dd>
             ${escapeHtml(
@@ -3128,9 +3473,7 @@ function createDocumentCard(
         </div>
 
         <div>
-          <dt>
-            Région
-          </dt>
+          <dt>Région</dt>
 
           <dd>
             ${escapeHtml(
@@ -3140,9 +3483,7 @@ function createDocumentCard(
         </div>
 
         <div>
-          <dt>
-            Commune
-          </dt>
+          <dt>Commune</dt>
 
           <dd>
             ${escapeHtml(
@@ -3172,14 +3513,15 @@ function createDocumentCard(
 }
 
 /* ==========================================================
-   47. STATISTIQUES PUBLIQUES
+   53. STATISTIQUES PUBLIQUES
    ========================================================== */
 
 function renderStatistics() {
   const publishedDocuments =
     state.documents.filter(
       (item) =>
-        item.publication_status ===
+        item
+          .publication_status ===
         "published"
     );
 
@@ -3209,63 +3551,49 @@ function renderStatistics() {
       publishedDocuments
         .map(
           (item) =>
-            item.alert_commune_id ||
+            item
+              .alert_commune_id ||
             item.commune
         )
         .filter(Boolean)
     );
 
-  const documentsCount =
-    getElement(
-      "documentsCount"
-    );
+  const statistics = {
+    documentsCount:
+      publishedDocuments.length,
 
-  const organizationsCount =
-    getElement(
-      "organizationsCount"
-    );
+    organizationsCount:
+      organizationIds.size,
 
-  const alertsCount =
-    getElement(
-      "alertsCount"
-    );
+    alertsCount:
+      alertIds.size,
 
-  const communesCount =
-    getElement(
-      "communesCount"
-    );
+    communesCount:
+      communeIds.size,
+  };
 
-  if (documentsCount) {
-    documentsCount.textContent =
-      String(
-        publishedDocuments.length
-      );
-  }
+  Object.entries(
+    statistics
+  ).forEach(
+    ([
+      elementId,
+      value,
+    ]) => {
+      const element =
+        getElement(
+          elementId
+        );
 
-  if (organizationsCount) {
-    organizationsCount.textContent =
-      String(
-        organizationIds.size
-      );
-  }
-
-  if (alertsCount) {
-    alertsCount.textContent =
-      String(
-        alertIds.size
-      );
-  }
-
-  if (communesCount) {
-    communesCount.textContent =
-      String(
-        communeIds.size
-      );
-  }
+      if (element) {
+        element.textContent =
+          String(value);
+      }
+    }
+  );
 }
 
 /* ==========================================================
-   48. FILTRE DES COMMUNES
+   54. FILTRES DOCUMENTAIRES
    ========================================================== */
 
 function populateDocumentFilters() {
@@ -3278,10 +3606,6 @@ function populateDocumentFilters() {
     "Toutes les communes"
   );
 }
-
-/* ==========================================================
-   49. REMPLISSAGE D’UNE LISTE DÉROULANTE UNIQUE
-   ========================================================== */
 
 function populateUniqueSelect(
   selectId,
@@ -3347,14 +3671,22 @@ function populateUniqueSelect(
   ) {
     select.value =
       currentValue;
+  } else {
+    select.value = "";
   }
 }
 
 /* ==========================================================
-   50. RÉINITIALISATION DES FILTRES
+   55. RÉINITIALISATION DES FILTRES
    ========================================================== */
 
-function resetDocumentFilters() {
+function resetDocumentFilters(
+  event
+) {
+  preventNativeFormSubmission(
+    event
+  );
+
   [
     "documentSearch",
     "filterOrganization",
@@ -3375,10 +3707,16 @@ function resetDocumentFilters() {
 }
 
 /* ==========================================================
-   51. ACTUALISATION MANUELLE DES DOCUMENTS
+   56. ACTUALISATION MANUELLE DES DOCUMENTS
    ========================================================== */
 
-async function refreshDocuments() {
+async function refreshDocuments(
+  event
+) {
+  preventNativeFormSubmission(
+    event
+  );
+
   const button =
     getElement(
       "refreshDocumentsButton"
@@ -3399,8 +3737,10 @@ async function refreshDocuments() {
     );
 
     window.alert(
-      error?.message ||
-      "Impossible d’actualiser les documents."
+      getErrorMessage(
+        error,
+        "Impossible d’actualiser les documents."
+      )
     );
   } finally {
     setButtonLoading(
@@ -3410,7 +3750,7 @@ async function refreshDocuments() {
   }
 }
 /* ==========================================================
-   52. CHARGEMENT GLOBAL DES DONNÉES ADMINISTRATIVES
+   57. CHARGEMENT GLOBAL DES DONNÉES ADMINISTRATIVES
    ========================================================== */
 
 async function loadAdminData() {
@@ -3418,10 +3758,13 @@ async function loadAdminData() {
     return;
   }
 
-  hideMessage(
+  const messageElement =
     getElement(
       "adminGlobalMessage"
-    )
+    );
+
+  hideMessage(
+    messageElement
   );
 
   const results =
@@ -3455,14 +3798,14 @@ async function loadAdminData() {
     );
 
     showMessage(
-      getElement(
-        "adminGlobalMessage"
-      ),
+      messageElement,
       errors
         .map(
           (error) =>
-            error?.message ||
-            String(error)
+            getErrorMessage(
+              error,
+              "Erreur de chargement administratif."
+            )
         )
         .join(" "),
       "error"
@@ -3473,7 +3816,7 @@ async function loadAdminData() {
 }
 
 /* ==========================================================
-   53. CHARGEMENT DES ORGANISATIONS ADMINISTRATIVES
+   58. CHARGEMENT DES ORGANISATIONS ADMINISTRATIVES
    ========================================================== */
 
 async function loadAdminOrganizations() {
@@ -3518,7 +3861,7 @@ async function loadAdminOrganizations() {
 }
 
 /* ==========================================================
-   54. AFFICHAGE DES ORGANISATIONS
+   59. AFFICHAGE DES ORGANISATIONS ADMINISTRATIVES
    ========================================================== */
 
 function renderAdminOrganizations() {
@@ -3639,7 +3982,7 @@ function renderAdminOrganizations() {
 }
 
 /* ==========================================================
-   55. RÉINITIALISATION DU FORMULAIRE ORGANISATION
+   60. RÉINITIALISATION DU FORMULAIRE ORGANISATION
    ========================================================== */
 
 function resetOrganizationForm(
@@ -3661,24 +4004,24 @@ function resetOrganizationForm(
       "organizationDatabaseId"
     );
 
-  if (databaseId) {
-    databaseId.value = "";
-  }
-
   const activeCheckbox =
     getElement(
       "organizationActive"
     );
 
-  if (activeCheckbox) {
-    activeCheckbox.checked =
-      true;
-  }
-
   const submitButton =
     getElement(
       "organizationSubmitButton"
     );
+
+  if (databaseId) {
+    databaseId.value = "";
+  }
+
+  if (activeCheckbox) {
+    activeCheckbox.checked =
+      true;
+  }
 
   if (submitButton) {
     submitButton.textContent =
@@ -3695,7 +4038,7 @@ function resetOrganizationForm(
 }
 
 /* ==========================================================
-   56. CHARGEMENT D’UNE ORGANISATION DANS LE FORMULAIRE
+   61. CHARGEMENT D’UNE ORGANISATION DANS LE FORMULAIRE
    ========================================================== */
 
 function editOrganization(
@@ -3741,6 +4084,11 @@ function editOrganization(
       "organizationActive"
     );
 
+  const submitButton =
+    getElement(
+      "organizationSubmitButton"
+    );
+
   if (databaseId) {
     databaseId.value =
       organization.id;
@@ -3748,12 +4096,14 @@ function editOrganization(
 
   if (nameInput) {
     nameInput.value =
-      organization.name || "";
+      organization.name ||
+      "";
   }
 
   if (acronymInput) {
     acronymInput.value =
-      organization.acronym || "";
+      organization.acronym ||
+      "";
   }
 
   if (activeCheckbox) {
@@ -3762,11 +4112,6 @@ function editOrganization(
         organization.is_active
       );
   }
-
-  const submitButton =
-    getElement(
-      "organizationSubmitButton"
-    );
 
   if (submitButton) {
     submitButton.textContent =
@@ -3780,10 +4125,20 @@ function editOrganization(
   );
 
   nameInput?.focus();
+
+  window.scrollTo({
+    top:
+      getElement(
+        "organizationForm"
+      )?.offsetTop || 0,
+
+    behavior:
+      "smooth",
+  });
 }
 
 /* ==========================================================
-   57. VÉRIFICATION DES DOUBLONS D’ORGANISATIONS
+   62. RECHERCHE D’UNE ORGANISATION EXISTANTE
    ========================================================== */
 
 function findExistingOrganization({
@@ -3801,47 +4156,96 @@ function findExistingOrganization({
       acronym
     );
 
-  return state.adminOrganizations.find(
-    (organization) => {
-      if (
-        excludeId &&
-        organization.id ===
-        excludeId
-      ) {
-        return false;
+  return (
+    state.adminOrganizations.find(
+      (organization) => {
+        if (
+          excludeId &&
+          organization.id ===
+          excludeId
+        ) {
+          return false;
+        }
+
+        const sameName =
+          normalizeOrganizationKey(
+            organization.name
+          ) ===
+          normalizedName;
+
+        const sameAcronym =
+          Boolean(
+            normalizedAcronym
+          ) &&
+          normalizeOrganizationKey(
+            organization.acronym
+          ) ===
+          normalizedAcronym;
+
+        return (
+          sameName ||
+          sameAcronym
+        );
       }
-
-      const sameName =
-        normalizeOrganizationKey(
-          organization.name
-        ) ===
-        normalizedName;
-
-      const sameAcronym =
-        Boolean(
-          normalizedAcronym
-        ) &&
-        normalizeOrganizationKey(
-          organization.acronym
-        ) ===
-        normalizedAcronym;
-
-      return (
-        sameName ||
-        sameAcronym
-      );
-    }
-  ) || null;
+    ) ||
+    null
+  );
 }
 
 /* ==========================================================
-   58. ENREGISTREMENT MANUEL D’UNE ORGANISATION
+   63. VALIDATION D’UNE ORGANISATION
+   ========================================================== */
+
+function validateOrganizationInput({
+  name,
+  acronym,
+  excludeId = "",
+}) {
+  if (!name) {
+    throw new Error(
+      "Le nom de l’organisation est obligatoire."
+    );
+  }
+
+  if (name.length < 2) {
+    throw new Error(
+      "Le nom de l’organisation est trop court."
+    );
+  }
+
+  if (
+    acronym &&
+    acronym.length > 30
+  ) {
+    throw new Error(
+      "L’acronyme ne doit pas dépasser 30 caractères."
+    );
+  }
+
+  const duplicate =
+    findExistingOrganization({
+      name,
+      acronym,
+      excludeId,
+    });
+
+  if (duplicate) {
+    throw new Error(
+      `Une organisation similaire existe déjà : ${duplicate.name}.`
+    );
+  }
+}
+
+/* ==========================================================
+   64. ENREGISTREMENT MANUEL D’UNE ORGANISATION
    ========================================================== */
 
 async function handleOrganizationSubmit(
   event
 ) {
-  event.preventDefault();
+  preventNativeFormSubmission(
+    event
+  );
 
   if (!state.isAdmin) {
     openLoginModal();
@@ -3849,7 +4253,7 @@ async function handleOrganizationSubmit(
   }
 
   const submitButton =
-    event.submitter ||
+    event?.submitter ||
     getElement(
       "organizationSubmitButton"
     );
@@ -3883,30 +4287,23 @@ async function handleOrganizationSubmit(
   const isActive =
     getElement(
       "organizationActive"
-    )?.checked ?? true;
+    )?.checked ??
+    true;
 
-  if (!name) {
-    showMessage(
-      messageElement,
-      "Le nom de l’organisation est obligatoire.",
-      "error"
-    );
-
-    return;
-  }
-
-  const existingOrganization =
-    findExistingOrganization({
+  try {
+    validateOrganizationInput({
       name,
       acronym,
       excludeId:
         organizationId,
     });
-
-  if (existingOrganization) {
+  } catch (error) {
     showMessage(
       messageElement,
-      `Une organisation similaire existe déjà : ${existingOrganization.name}.`,
+      getErrorMessage(
+        error,
+        "Les informations de l’organisation sont invalides."
+      ),
       "error"
     );
 
@@ -3917,15 +4314,19 @@ async function handleOrganizationSubmit(
     name,
 
     acronym:
-      acronym || null,
+      acronym ||
+      null,
 
     slug:
       slugify(
-        acronym || name
+        acronym ||
+        name
       ),
 
     is_active:
-      isActive,
+      Boolean(
+        isActive
+      ),
 
     updated_at:
       new Date().toISOString(),
@@ -3994,6 +4395,14 @@ async function handleOrganizationSubmit(
         : "Organisation créée avec succès.",
       "success"
     );
+
+    showView(
+      "admin"
+    );
+
+    showAdminTab(
+      "organizations"
+    );
   } catch (error) {
     console.error(
       "Erreur d’enregistrement de l’organisation :",
@@ -4002,8 +4411,10 @@ async function handleOrganizationSubmit(
 
     showMessage(
       messageElement,
-      error?.message ||
-      "Impossible d’enregistrer l’organisation.",
+      getErrorMessage(
+        error,
+        "Impossible d’enregistrer l’organisation."
+      ),
       "error"
     );
   } finally {
@@ -4015,7 +4426,7 @@ async function handleOrganizationSubmit(
 }
 
 /* ==========================================================
-   59. ACTIVATION OU DÉSACTIVATION D’UNE ORGANISATION
+   65. ACTIVATION OU DÉSACTIVATION D’UNE ORGANISATION
    ========================================================== */
 
 async function toggleOrganizationStatus(
@@ -4044,14 +4455,14 @@ async function toggleOrganizationStatus(
   const newStatus =
     !organization.is_active;
 
-  const confirmation =
+  const confirmed =
     window.confirm(
       newStatus
         ? `Activer l’organisation « ${organization.name} » ?`
         : `Désactiver l’organisation « ${organization.name} » ?`
     );
 
-  if (!confirmation) {
+  if (!confirmed) {
     return;
   }
 
@@ -4085,10 +4496,18 @@ async function toggleOrganizationStatus(
     loadAdminOrganizations(),
     loadPublicOrganizations(),
   ]);
+
+  showView(
+    "admin"
+  );
+
+  showAdminTab(
+    "organizations"
+  );
 }
 
 /* ==========================================================
-   60. ACTIONS DU TABLEAU DES ORGANISATIONS
+   66. ACTIONS DU TABLEAU DES ORGANISATIONS
    ========================================================== */
 
 function handleAdminOrganizationTableClick(
@@ -4102,6 +4521,10 @@ function handleAdminOrganizationTableClick(
   if (!control) {
     return;
   }
+
+  preventNativeFormSubmission(
+    event
+  );
 
   const organizationId =
     control.dataset.id;
@@ -4126,12 +4549,263 @@ function handleAdminOrganizationTableClick(
       break;
 
     default:
+      console.warn(
+        `Action organisation inconnue : ${control.dataset.action}`
+      );
       break;
   }
 }
+/* ==========================================================
+   67. DÉTECTION DU SÉPARATEUR CSV
+   ========================================================== */
+
+function detectCsvDelimiter(text) {
+  const firstNonEmptyLine =
+    String(text || "")
+      .split(/\r?\n/)
+      .find(
+        (line) =>
+          line.trim()
+      ) || "";
+
+  const candidates = [
+    {
+      delimiter: "\t",
+      count:
+        (
+          firstNonEmptyLine.match(
+            /\t/g
+          ) || []
+        ).length,
+    },
+    {
+      delimiter: ";",
+      count:
+        (
+          firstNonEmptyLine.match(
+            /;/g
+          ) || []
+        ).length,
+    },
+    {
+      delimiter: ",",
+      count:
+        (
+          firstNonEmptyLine.match(
+            /,/g
+          ) || []
+        ).length,
+    },
+  ];
+
+  candidates.sort(
+    (a, b) =>
+      b.count - a.count
+  );
+
+  return candidates[0].count > 0
+    ? candidates[0].delimiter
+    : ",";
+}
 
 /* ==========================================================
-   61. CONVERSION DU STATUT CSV EN BOOLÉEN
+   68. ANALYSE D’UNE LIGNE CSV
+   ========================================================== */
+
+function parseCsvLine(
+  line,
+  delimiter
+) {
+  const values = [];
+
+  let currentValue = "";
+  let insideQuotes = false;
+
+  for (
+    let index = 0;
+    index < line.length;
+    index += 1
+  ) {
+    const character =
+      line[index];
+
+    const nextCharacter =
+      line[index + 1];
+
+    if (character === '"') {
+      if (
+        insideQuotes &&
+        nextCharacter === '"'
+      ) {
+        currentValue += '"';
+        index += 1;
+      } else {
+        insideQuotes =
+          !insideQuotes;
+      }
+
+      continue;
+    }
+
+    if (
+      character === delimiter &&
+      !insideQuotes
+    ) {
+      values.push(
+        currentValue.trim()
+      );
+
+      currentValue = "";
+      continue;
+    }
+
+    currentValue +=
+      character;
+  }
+
+  values.push(
+    currentValue.trim()
+  );
+
+  return values;
+}
+
+/* ==========================================================
+   69. TRANSFORMATION DU CSV EN OBJETS
+   ========================================================== */
+
+function parseCsvText(text) {
+  const normalizedText =
+    String(text || "")
+      .replace(/^\uFEFF/, "")
+      .replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n");
+
+  const lines =
+    normalizedText
+      .split("\n")
+      .filter(
+        (line) =>
+          line.trim()
+      );
+
+  if (lines.length < 2) {
+    throw new Error(
+      "Le fichier CSV ne contient aucune donnée exploitable."
+    );
+  }
+
+  const delimiter =
+    detectCsvDelimiter(
+      normalizedText
+    );
+
+  const rawHeaders =
+    parseCsvLine(
+      lines[0],
+      delimiter
+    );
+
+  const headers =
+    rawHeaders.map(
+      normalizeHeader
+    );
+
+  const duplicateHeaders =
+    headers.filter(
+      (header, index) =>
+        headers.indexOf(
+          header
+        ) !== index
+    );
+
+  if (
+    duplicateHeaders.length > 0
+  ) {
+    throw new Error(
+      `Le fichier CSV contient des colonnes en double : ${uniqueValues(
+        duplicateHeaders
+      ).join(", ")}.`
+    );
+  }
+
+  const rows = [];
+
+  for (
+    let index = 1;
+    index < lines.length;
+    index += 1
+  ) {
+    const values =
+      parseCsvLine(
+        lines[index],
+        delimiter
+      );
+
+    const row = {
+      __lineNumber:
+        index + 1,
+    };
+
+    headers.forEach(
+      (
+        header,
+        headerIndex
+      ) => {
+        row[header] =
+          values[headerIndex]
+            ?.trim() || "";
+      }
+    );
+
+    rows.push(row);
+  }
+
+  return {
+    rows,
+    headers,
+    delimiter,
+  };
+}
+
+/* ==========================================================
+   70. RÉCUPÉRATION D’UNE VALEUR CSV
+   ========================================================== */
+
+function getCsvValue(
+  row,
+  aliases
+) {
+  for (
+    const alias
+    of aliases
+  ) {
+    const normalizedAlias =
+      normalizeHeader(
+        alias
+      );
+
+    if (
+      Object.prototype
+        .hasOwnProperty
+        .call(
+          row,
+          normalizedAlias
+        )
+    ) {
+      return String(
+        row[
+          normalizedAlias
+        ] ?? ""
+      ).trim();
+    }
+  }
+
+  return "";
+}
+
+/* ==========================================================
+   71. CONVERSION DU STATUT CSV EN BOOLÉEN
    ========================================================== */
 
 function parseBooleanCsvValue(
@@ -4191,7 +4865,7 @@ function parseBooleanCsvValue(
 }
 
 /* ==========================================================
-   62. VALIDATION DES COLONNES CSV DES ORGANISATIONS
+   72. VALIDATION DES COLONNES DU CSV DES ORGANISATIONS
    ========================================================== */
 
 function validateOrganizationsCsvHeaders(
@@ -4202,49 +4876,31 @@ function validateOrganizationsCsvHeaders(
       headers
     );
 
-  const missingColumns = [];
+  const requiredHeaders = [
+    "name",
+    "acronym",
+    "is_active",
+  ];
 
-  if (
-    !headerSet.has(
-      "name"
-    )
-  ) {
-    missingColumns.push(
-      "name"
+  const missingHeaders =
+    requiredHeaders.filter(
+      (header) =>
+        !headerSet.has(
+          header
+        )
     );
-  }
 
   if (
-    !headerSet.has(
-      "acronym"
-    )
-  ) {
-    missingColumns.push(
-      "acronym"
-    );
-  }
-
-  if (
-    !headerSet.has(
-      "is_active"
-    )
-  ) {
-    missingColumns.push(
-      "is_active"
-    );
-  }
-
-  if (
-    missingColumns.length > 0
+    missingHeaders.length > 0
   ) {
     throw new Error(
-      `Colonnes obligatoires manquantes : ${missingColumns.join(", ")}.`
+      `Colonnes obligatoires manquantes : ${missingHeaders.join(", ")}.`
     );
   }
 }
 
 /* ==========================================================
-   63. NORMALISATION D’UNE LIGNE CSV D’ORGANISATION
+   73. NORMALISATION D’UNE LIGNE CSV D’ORGANISATION
    ========================================================== */
 
 function normalizeOrganizationCsvRow(
@@ -4301,7 +4957,7 @@ function normalizeOrganizationCsvRow(
 }
 
 /* ==========================================================
-   64. REGROUPEMENT DES ORGANISATIONS DU CSV
+   74. REGROUPEMENT DES ORGANISATIONS DU CSV
    ========================================================== */
 
 function groupOrganizationCsvRows(
@@ -4323,7 +4979,10 @@ function groupOrganizationCsvRows(
           );
       } catch (error) {
         validationErrors.push(
-          `Ligne ${rawRow.__lineNumber} : ${error.message}`
+          `Ligne ${rawRow.__lineNumber} : ${getErrorMessage(
+            error,
+            "Valeur invalide."
+          )}`
         );
 
         return;
@@ -4345,14 +5004,35 @@ function groupOrganizationCsvRows(
         return;
       }
 
+      if (
+        row.name.length < 2
+      ) {
+        validationErrors.push(
+          `Ligne ${row.lineNumber} : le nom de l’organisation est trop court.`
+        );
+
+        return;
+      }
+
+      if (
+        row.acronym &&
+        row.acronym.length > 30
+      ) {
+        validationErrors.push(
+          `Ligne ${row.lineNumber} : l’acronyme ne doit pas dépasser 30 caractères.`
+        );
+
+        return;
+      }
+
       const organizationKey =
         normalizeOrganizationKey(
           row.name
         );
 
       /*
-       * Si le même nom apparaît plusieurs fois dans le CSV,
-       * la dernière ligne devient la valeur retenue.
+       * La dernière occurrence d’un même nom
+       * remplace les précédentes dans le fichier.
        */
       organizationsMap.set(
         organizationKey,
@@ -4399,7 +5079,7 @@ function groupOrganizationCsvRows(
 }
 
 /* ==========================================================
-   65. LECTURE DU CSV DES ORGANISATIONS
+   75. LECTURE DU CSV DES ORGANISATIONS
    ========================================================== */
 
 async function readOrganizationsCsvFile() {
@@ -4412,11 +5092,20 @@ async function readOrganizationsCsvFile() {
     file
   );
 
-  return file.text();
+  try {
+    return await file.text();
+  } catch (error) {
+    throw new Error(
+      `Impossible de lire le fichier CSV : ${getErrorMessage(
+        error,
+        "Erreur de lecture."
+      )}`
+    );
+  }
 }
 
 /* ==========================================================
-   66. PRÉVISUALISATION DU CSV DES ORGANISATIONS
+   76. PRÉVISUALISATION DU CSV DES ORGANISATIONS
    ========================================================== */
 
 function renderOrganizationsCsvPreview(
@@ -4569,14 +5258,25 @@ function renderOrganizationsCsvPreview(
 }
 
 /* ==========================================================
-   67. TRAITEMENT DE LA PRÉVISUALISATION
+   77. PRÉVISUALISATION DU FICHIER CSV
    ========================================================== */
 
-async function handleOrganizationsCsvPreview() {
+async function handleOrganizationsCsvPreview(
+  event
+) {
+  preventNativeFormSubmission(
+    event
+  );
+
   if (!state.isAdmin) {
     openLoginModal();
     return;
   }
+
+  const button =
+    getElement(
+      "organizationsCsvPreviewButton"
+    );
 
   const messageElement =
     getElement(
@@ -4585,6 +5285,12 @@ async function handleOrganizationsCsvPreview() {
 
   hideMessage(
     messageElement
+  );
+
+  setButtonLoading(
+    button,
+    true,
+    "Analyse..."
   );
 
   try {
@@ -4613,7 +5319,7 @@ async function handleOrganizationsCsvPreview() {
 
     showMessage(
       messageElement,
-      "Le fichier CSV est valide et prêt à être importé.",
+      `${organizations.length} organisation(s) valide(s). Le fichier est prêt à être importé.`,
       "success"
     );
   } catch (error) {
@@ -4624,7 +5330,6 @@ async function handleOrganizationsCsvPreview() {
 
     if (preview) {
       preview.innerHTML = "";
-
       preview.classList.add(
         "hidden"
       );
@@ -4632,21 +5337,40 @@ async function handleOrganizationsCsvPreview() {
 
     showMessage(
       messageElement,
-      error?.message ||
-      "Le fichier CSV est invalide.",
+      getErrorMessage(
+        error,
+        "Le fichier CSV est invalide."
+      ),
       "error"
+    );
+  } finally {
+    setButtonLoading(
+      button,
+      false
     );
   }
 }
 
 /* ==========================================================
-   68. IMPORTATION DU CSV DES ORGANISATIONS
+   78. IMPORTATION DU CSV DES ORGANISATIONS
    ========================================================== */
 
 async function handleOrganizationsCsvImport(
-  event
+  event = null
 ) {
-  event.preventDefault();
+  /*
+   * Correction essentielle :
+   * le formulaire ne doit jamais être soumis par le navigateur.
+   */
+  preventNativeFormSubmission(
+    event
+  );
+
+  if (
+    state.organizationImportInProgress
+  ) {
+    return;
+  }
 
   if (!state.isAdmin) {
     openLoginModal();
@@ -4654,7 +5378,6 @@ async function handleOrganizationsCsvImport(
   }
 
   const submitButton =
-    event.submitter ||
     getElement(
       "importOrganizationsButton"
     );
@@ -4664,9 +5387,40 @@ async function handleOrganizationsCsvImport(
       "organizationsImportMessage"
     );
 
+  const fileInput =
+    getElement(
+      "organizationsCsvFile"
+    );
+
   hideMessage(
     messageElement
   );
+
+  if (!fileInput) {
+    showMessage(
+      messageElement,
+      "Le champ de sélection du fichier CSV est introuvable.",
+      "error"
+    );
+
+    return;
+  }
+
+  const file =
+    fileInput.files?.[0];
+
+  if (!file) {
+    showMessage(
+      messageElement,
+      "Veuillez sélectionner un fichier CSV avant de lancer l’importation.",
+      "error"
+    );
+
+    return;
+  }
+
+  state.organizationImportInProgress =
+    true;
 
   setButtonLoading(
     submitButton,
@@ -4675,8 +5429,12 @@ async function handleOrganizationsCsvImport(
   );
 
   try {
+    validateCsvFile(
+      file
+    );
+
     const csvText =
-      await readOrganizationsCsvFile();
+      await file.text();
 
     const {
       rows,
@@ -4699,7 +5457,7 @@ async function handleOrganizationsCsvImport(
       0
     ) {
       throw new Error(
-        "Aucune organisation valide n’a été trouvée dans le fichier."
+        "Aucune organisation valide n’a été détectée dans le fichier CSV."
       );
     }
 
@@ -4712,25 +5470,46 @@ async function handleOrganizationsCsvImport(
         organizations
       );
 
-    resetOrganizationsCsvImport({
-      preserveMessage:
-        true,
-    });
-
     await Promise.all([
       loadAdminOrganizations(),
       loadPublicOrganizations(),
     ]);
 
+    fileInput.value = "";
+
+    const preview =
+      getElement(
+        "organizationsCsvPreview"
+      );
+
+    if (preview) {
+      preview.innerHTML = "";
+      preview.classList.add(
+        "hidden"
+      );
+    }
+
     showMessage(
       messageElement,
       [
-        "Import terminé.",
+        "Importation terminée avec succès.",
         `${result.created} organisation(s) créée(s).`,
         `${result.updated} organisation(s) mise(s) à jour.`,
         `${result.unchanged} organisation(s) inchangée(s).`,
       ].join(" "),
       "success"
+    );
+
+    /*
+     * Maintient explicitement l’utilisateur
+     * dans Administration > Organisations.
+     */
+    showView(
+      "admin"
+    );
+
+    showAdminTab(
+      "organizations"
     );
   } catch (error) {
     console.error(
@@ -4740,11 +5519,24 @@ async function handleOrganizationsCsvImport(
 
     showMessage(
       messageElement,
-      error?.message ||
-      "Impossible d’importer les organisations.",
+      getErrorMessage(
+        error,
+        "Impossible d’importer les organisations."
+      ),
       "error"
     );
+
+    showView(
+      "admin"
+    );
+
+    showAdminTab(
+      "organizations"
+    );
   } finally {
+    state.organizationImportInProgress =
+      false;
+
     setButtonLoading(
       submitButton,
       false
@@ -4753,12 +5545,18 @@ async function handleOrganizationsCsvImport(
 }
 
 /* ==========================================================
-   69. CRÉATION ET MISE À JOUR DES ORGANISATIONS
+   79. IMPORTATION DANS SUPABASE
    ========================================================== */
 
 async function importOrganizations(
   organizations
 ) {
+  if (!state.isAdmin) {
+    throw new Error(
+      "Seul un administrateur peut importer les organisations."
+    );
+  }
+
   const result = {
     created: 0,
     updated: 0,
@@ -4782,7 +5580,7 @@ async function importOrganizations(
 
   if (existingError) {
     throw new Error(
-      `Impossible de vérifier les organisations existantes : ${existingError.message}`
+      `Impossible de lire les organisations existantes : ${existingError.message}`
     );
   }
 
@@ -4797,17 +5595,22 @@ async function importOrganizations(
     []
   ).forEach(
     (organization) => {
-      existingByName.set(
+      const nameKey =
         normalizeOrganizationKey(
           organization.name
-        ),
-        organization
-      );
+        );
 
       const acronymKey =
         normalizeOrganizationKey(
           organization.acronym
         );
+
+      if (nameKey) {
+        existingByName.set(
+          nameKey,
+          organization
+        );
+      }
 
       if (acronymKey) {
         existingByAcronym.set(
@@ -4832,24 +5635,41 @@ async function importOrganizations(
         organization.acronym
       );
 
-    const existing =
+    const existingByOrganizationName =
       existingByName.get(
         nameKey
-      ) ||
-      (
-        acronymKey
-          ? existingByAcronym.get(
-              acronymKey
-            )
-          : null
       );
+
+    const existingByOrganizationAcronym =
+      acronymKey
+        ? existingByAcronym.get(
+            acronymKey
+          )
+        : null;
+
+    if (
+      existingByOrganizationName &&
+      existingByOrganizationAcronym &&
+      existingByOrganizationName.id !==
+        existingByOrganizationAcronym.id
+    ) {
+      throw new Error(
+        `Conflit pour « ${organization.name} » : le nom et l’acronyme correspondent à deux organisations différentes.`
+      );
+    }
+
+    const existing =
+      existingByOrganizationName ||
+      existingByOrganizationAcronym ||
+      null;
 
     const payload = {
       name:
-        organization.name,
+        organization.name.trim(),
 
       acronym:
-        organization.acronym ||
+        organization.acronym
+          ?.trim() ||
         null,
 
       slug:
@@ -4859,7 +5679,9 @@ async function importOrganizations(
         ),
 
       is_active:
-        organization.isActive,
+        Boolean(
+          organization.isActive
+        ),
 
       updated_at:
         new Date().toISOString(),
@@ -4870,31 +5692,36 @@ async function importOrganizations(
         normalizeOrganizationKey(
           existing.name
         ) ===
-        normalizeOrganizationKey(
-          payload.name
-        ) &&
+          normalizeOrganizationKey(
+            payload.name
+          ) &&
         normalizeOrganizationKey(
           existing.acronym
         ) ===
-        normalizeOrganizationKey(
-          payload.acronym
-        ) &&
+          normalizeOrganizationKey(
+            payload.acronym
+          ) &&
         Boolean(
           existing.is_active
         ) ===
-        Boolean(
-          payload.is_active
-        );
+          Boolean(
+            payload.is_active
+          ) &&
+        String(
+          existing.slug || ""
+        ) ===
+          String(
+            payload.slug || ""
+          );
 
       if (unchanged) {
-        result.unchanged +=
-          1;
-
+        result.unchanged += 1;
         continue;
       }
 
       const {
-        error,
+        data: updatedOrganization,
+        error: updateError,
       } = await supabase
         .from(
           "organizations"
@@ -4905,23 +5732,49 @@ async function importOrganizations(
         .eq(
           "id",
           existing.id
-        );
+        )
+        .select(`
+          id,
+          name,
+          acronym,
+          slug,
+          is_active
+        `)
+        .single();
 
-      if (error) {
+      if (updateError) {
         throw new Error(
-          `Impossible de mettre à jour « ${organization.name} » : ${error.message}`
+          `Impossible de mettre à jour « ${organization.name} » : ${updateError.message}`
         );
       }
 
-      result.updated +=
-        1;
+      existingByName.set(
+        normalizeOrganizationKey(
+          updatedOrganization.name
+        ),
+        updatedOrganization
+      );
+
+      const updatedAcronymKey =
+        normalizeOrganizationKey(
+          updatedOrganization.acronym
+        );
+
+      if (updatedAcronymKey) {
+        existingByAcronym.set(
+          updatedAcronymKey,
+          updatedOrganization
+        );
+      }
+
+      result.updated += 1;
 
       continue;
     }
 
     const {
       data: insertedOrganization,
-      error,
+      error: insertError,
     } = await supabase
       .from(
         "organizations"
@@ -4941,9 +5794,9 @@ async function importOrganizations(
       `)
       .single();
 
-    if (error) {
+    if (insertError) {
       throw new Error(
-        `Impossible de créer « ${organization.name} » : ${error.message}`
+        `Impossible de créer « ${organization.name} » : ${insertError.message}`
       );
     }
 
@@ -4959,15 +5812,14 @@ async function importOrganizations(
       );
     }
 
-    result.created +=
-      1;
+    result.created += 1;
   }
 
   return result;
 }
 
 /* ==========================================================
-   70. RÉINITIALISATION DE L’IMPORT CSV DES ORGANISATIONS
+   80. RÉINITIALISATION DE L’IMPORT CSV
    ========================================================== */
 
 function resetOrganizationsCsvImport(
@@ -4991,7 +5843,6 @@ function resetOrganizationsCsvImport(
 
   if (preview) {
     preview.innerHTML = "";
-
     preview.classList.add(
       "hidden"
     );
@@ -5005,8 +5856,32 @@ function resetOrganizationsCsvImport(
     );
   }
 }
+
 /* ==========================================================
-   71. CHARGEMENT ADMINISTRATIF DES ALERTES
+   81. RÉINITIALISATION DE L’APERÇU AU CHANGEMENT DE FICHIER
+   ========================================================== */
+
+function handleOrganizationsCsvFileChange() {
+  const preview =
+    getElement(
+      "organizationsCsvPreview"
+    );
+
+  if (preview) {
+    preview.innerHTML = "";
+    preview.classList.add(
+      "hidden"
+    );
+  }
+
+  hideMessage(
+    getElement(
+      "organizationsImportMessage"
+    )
+  );
+}
+/* ==========================================================
+   82. CHARGEMENT ADMINISTRATIF DES ALERTES ET COMMUNES
    ========================================================== */
 
 async function loadAdminAlerts() {
@@ -5032,7 +5907,7 @@ async function loadAdminAlerts() {
     .order(
       "alert_code",
       {
-        ascending: true,
+        ascending: false,
       }
     );
 
@@ -5113,7 +5988,7 @@ async function loadAdminAlerts() {
 }
 
 /* ==========================================================
-   72. AFFICHAGE DES ALERTES
+   83. AFFICHAGE DES ALERTES DANS LE TABLEAU ADMINISTRATIF
    ========================================================== */
 
 function renderAdminAlerts() {
@@ -5139,7 +6014,8 @@ function renderAdminAlerts() {
   }
 
   if (
-    state.adminAlerts.length === 0
+    state.adminAlerts.length ===
+    0
   ) {
     tableBody.innerHTML = `
       <tr>
@@ -5179,6 +6055,18 @@ function renderAdminAlerts() {
                   )
               );
 
+          const inactiveCommunes =
+            alertItem.communes
+              .filter(
+                (communeItem) =>
+                  communeItem.is_active ===
+                  false
+              )
+              .map(
+                (communeItem) =>
+                  communeItem.commune
+              );
+
           const communesText =
             activeCommunes.length > 0
               ? activeCommunes.join(", ")
@@ -5202,9 +6090,22 @@ function renderAdminAlerts() {
               </td>
 
               <td>
-                ${escapeHtml(
-                  communesText
-                )}
+                <div>
+                  ${escapeHtml(
+                    communesText
+                  )}
+                </div>
+
+                ${
+                  inactiveCommunes.length > 0
+                    ? `
+                      <div class="table-subtext">
+                        ${inactiveCommunes.length}
+                        commune(s) inactive(s)
+                      </div>
+                    `
+                    : ""
+                }
               </td>
 
               <td>
@@ -5262,13 +6163,13 @@ function renderAdminAlerts() {
 }
 
 /* ==========================================================
-   73. ANALYSE D’UNE LISTE DE COMMUNES
+   84. ANALYSE D’UNE LISTE DE COMMUNES
    ========================================================== */
 
 function parseCommuneList(value) {
   const communes =
     String(value || "")
-      .split(/[,\n;]+/)
+      .split(/[,\n;|]+/)
       .map(
         (item) =>
           item.trim()
@@ -5286,6 +6187,7 @@ function parseCommuneList(value) {
         );
 
       if (
+        key &&
         !uniqueCommunes.has(
           key
         )
@@ -5314,7 +6216,7 @@ function parseCommuneList(value) {
 }
 
 /* ==========================================================
-   74. RÉINITIALISATION DU FORMULAIRE ALERTE
+   85. RÉINITIALISATION DU FORMULAIRE ALERTE
    ========================================================== */
 
 function resetAlertForm(
@@ -5341,6 +6243,16 @@ function resetAlertForm(
       "alertCommuneDatabaseId"
     );
 
+  const activeCheckbox =
+    getElement(
+      "alertActive"
+    );
+
+  const submitButton =
+    getElement(
+      "alertSubmitButton"
+    );
+
   if (alertDatabaseId) {
     alertDatabaseId.value = "";
   }
@@ -5349,20 +6261,10 @@ function resetAlertForm(
     communeDatabaseId.value = "";
   }
 
-  const activeCheckbox =
-    getElement(
-      "alertActive"
-    );
-
   if (activeCheckbox) {
     activeCheckbox.checked =
       true;
   }
-
-  const submitButton =
-    getElement(
-      "alertSubmitButton"
-    );
 
   if (submitButton) {
     submitButton.textContent =
@@ -5379,12 +6281,10 @@ function resetAlertForm(
 }
 
 /* ==========================================================
-   75. CHARGEMENT D’UNE ALERTE DANS LE FORMULAIRE
+   86. CHARGEMENT D’UNE ALERTE DANS LE FORMULAIRE
    ========================================================== */
 
-function editAlert(
-  alertId
-) {
+function editAlert(alertId) {
   if (!state.isAdmin) {
     openLoginModal();
     return;
@@ -5453,6 +6353,11 @@ function editAlert(
       "alertActive"
     );
 
+  const submitButton =
+    getElement(
+      "alertSubmitButton"
+    );
+
   if (databaseId) {
     databaseId.value =
       alertItem.id;
@@ -5460,12 +6365,14 @@ function editAlert(
 
   if (codeInput) {
     codeInput.value =
-      alertItem.alert_code || "";
+      alertItem.alert_code ||
+      "";
   }
 
   if (regionInput) {
     regionInput.value =
-      alertItem.region || "";
+      alertItem.region ||
+      "";
   }
 
   if (communeInput) {
@@ -5482,11 +6389,6 @@ function editAlert(
       );
   }
 
-  const submitButton =
-    getElement(
-      "alertSubmitButton"
-    );
-
   if (submitButton) {
     submitButton.textContent =
       "Mettre à jour l’alerte";
@@ -5499,10 +6401,17 @@ function editAlert(
   );
 
   codeInput?.focus();
+
+  getElement(
+    "alertForm"
+  )?.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
 }
 
 /* ==========================================================
-   76. RECHERCHE D’UNE ALERTE EXISTANTE
+   87. RECHERCHE D’UNE ALERTE EXISTANTE
    ========================================================== */
 
 function findExistingAlert({
@@ -5537,13 +6446,61 @@ function findExistingAlert({
 }
 
 /* ==========================================================
-   77. ENREGISTREMENT MANUEL D’UNE ALERTE
+   88. VALIDATION D’UNE ALERTE
+   ========================================================== */
+
+function validateAlertInput({
+  alertCode,
+  region,
+  communes,
+  excludeId = "",
+}) {
+  if (!alertCode) {
+    throw new Error(
+      "L’Alerte ID est obligatoire."
+    );
+  }
+
+  if (!region) {
+    throw new Error(
+      "La région est obligatoire."
+    );
+  }
+
+  if (
+    !Array.isArray(
+      communes
+    ) ||
+    communes.length === 0
+  ) {
+    throw new Error(
+      "Veuillez renseigner au moins une commune."
+    );
+  }
+
+  const duplicate =
+    findExistingAlert({
+      alertCode,
+      excludeId,
+    });
+
+  if (duplicate) {
+    throw new Error(
+      `L’Alerte ID ${duplicate.alert_code} existe déjà.`
+    );
+  }
+}
+
+/* ==========================================================
+   89. ENREGISTREMENT MANUEL D’UNE ALERTE
    ========================================================== */
 
 async function handleAlertSubmit(
   event
 ) {
-  event.preventDefault();
+  preventNativeFormSubmission(
+    event
+  );
 
   if (!state.isAdmin) {
     openLoginModal();
@@ -5551,7 +6508,7 @@ async function handleAlertSubmit(
   }
 
   const submitButton =
-    event.submitter ||
+    event?.submitter ||
     getElement(
       "alertSubmitButton"
     );
@@ -5595,51 +6552,24 @@ async function handleAlertSubmit(
   const isActive =
     getElement(
       "alertActive"
-    )?.checked ?? true;
+    )?.checked ??
+    true;
 
-  if (!alertCode) {
-    showMessage(
-      messageElement,
-      "L’Alerte ID est obligatoire.",
-      "error"
-    );
-
-    return;
-  }
-
-  if (!region) {
-    showMessage(
-      messageElement,
-      "La région est obligatoire.",
-      "error"
-    );
-
-    return;
-  }
-
-  if (
-    communes.length === 0
-  ) {
-    showMessage(
-      messageElement,
-      "Veuillez renseigner au moins une commune.",
-      "error"
-    );
-
-    return;
-  }
-
-  const duplicateAlert =
-    findExistingAlert({
+  try {
+    validateAlertInput({
       alertCode,
+      region,
+      communes,
       excludeId:
         alertId,
     });
-
-  if (duplicateAlert) {
+  } catch (error) {
     showMessage(
       messageElement,
-      `L’Alerte ID ${duplicateAlert.alert_code} existe déjà.`,
+      getErrorMessage(
+        error,
+        "Les informations de l’alerte sont invalides."
+      ),
       "error"
     );
 
@@ -5665,7 +6595,9 @@ async function handleAlertSubmit(
       region,
 
       is_active:
-        isActive,
+        Boolean(
+          isActive
+        ),
 
       updated_at:
         new Date().toISOString(),
@@ -5735,6 +6667,14 @@ async function handleAlertSubmit(
         : "Alerte créée avec succès.",
       "success"
     );
+
+    showView(
+      "admin"
+    );
+
+    showAdminTab(
+      "alerts"
+    );
   } catch (error) {
     console.error(
       "Erreur d’enregistrement de l’alerte :",
@@ -5743,8 +6683,10 @@ async function handleAlertSubmit(
 
     showMessage(
       messageElement,
-      error?.message ||
-      "Impossible d’enregistrer l’alerte.",
+      getErrorMessage(
+        error,
+        "Impossible d’enregistrer l’alerte."
+      ),
       "error"
     );
   } finally {
@@ -5756,7 +6698,7 @@ async function handleAlertSubmit(
 }
 
 /* ==========================================================
-   78. SYNCHRONISATION DES COMMUNES D’UNE ALERTE
+   90. SYNCHRONISATION DES COMMUNES D’UNE ALERTE
    ========================================================== */
 
 async function synchronizeAlertCommunes(
@@ -5882,18 +6824,29 @@ async function synchronizeAlertCommunes(
   if (
     rowsToInsert.length > 0
   ) {
-    const {
-      error,
-    } = await supabase
-      .from("alert_communes")
-      .insert(
-        rowsToInsert
+    const insertChunks =
+      chunkArray(
+        rowsToInsert,
+        100
       );
 
-    if (error) {
-      throw new Error(
-        `Impossible d’ajouter les communes : ${error.message}`
-      );
+    for (
+      const rowsChunk
+      of insertChunks
+    ) {
+      const {
+        error,
+      } = await supabase
+        .from("alert_communes")
+        .insert(
+          rowsChunk
+        );
+
+      if (error) {
+        throw new Error(
+          `Impossible d’ajouter les communes : ${error.message}`
+        );
+      }
     }
   }
 
@@ -5930,32 +6883,43 @@ async function synchronizeAlertCommunes(
   if (
     rowsToDeactivate.length > 0
   ) {
-    const {
-      error,
-    } = await supabase
-      .from("alert_communes")
-      .update({
-        is_active:
-          false,
-
-        updated_at:
-          new Date().toISOString(),
-      })
-      .in(
-        "id",
-        rowsToDeactivate
+    const deactivateChunks =
+      chunkArray(
+        rowsToDeactivate,
+        100
       );
 
-    if (error) {
-      throw new Error(
-        `Impossible de désactiver les communes retirées : ${error.message}`
-      );
+    for (
+      const idsChunk
+      of deactivateChunks
+    ) {
+      const {
+        error,
+      } = await supabase
+        .from("alert_communes")
+        .update({
+          is_active:
+            false,
+
+          updated_at:
+            new Date().toISOString(),
+        })
+        .in(
+          "id",
+          idsChunk
+        );
+
+      if (error) {
+        throw new Error(
+          `Impossible de désactiver les communes retirées : ${error.message}`
+        );
+      }
     }
   }
 }
 
 /* ==========================================================
-   79. ACTIVATION OU DÉSACTIVATION D’UNE ALERTE
+   91. ACTIVATION OU DÉSACTIVATION D’UNE ALERTE
    ========================================================== */
 
 async function toggleAlertStatus(
@@ -5984,14 +6948,14 @@ async function toggleAlertStatus(
   const newStatus =
     !alertItem.is_active;
 
-  const confirmation =
+  const confirmed =
     window.confirm(
       newStatus
         ? `Activer l’Alerte ID « ${alertItem.alert_code} » ?`
         : `Désactiver l’Alerte ID « ${alertItem.alert_code} » ?`
     );
 
-  if (!confirmation) {
+  if (!confirmed) {
     return;
   }
 
@@ -6026,10 +6990,18 @@ async function toggleAlertStatus(
   ]);
 
   refreshDocumentEnrichment();
+
+  showView(
+    "admin"
+  );
+
+  showAdminTab(
+    "alerts"
+  );
 }
 
 /* ==========================================================
-   80. ACTIONS DU TABLEAU DES ALERTES
+   92. ACTIONS DU TABLEAU DES ALERTES
    ========================================================== */
 
 function handleAdminAlertTableClick(
@@ -6043,6 +7015,10 @@ function handleAdminAlertTableClick(
   if (!control) {
     return;
   }
+
+  preventNativeFormSubmission(
+    event
+  );
 
   const alertId =
     control.dataset.id;
@@ -6067,247 +7043,15 @@ function handleAdminAlertTableClick(
       break;
 
     default:
+      console.warn(
+        `Action alerte inconnue : ${control.dataset.action}`
+      );
       break;
   }
 }
-/* ==========================================================
-   81. DÉTECTION DU SÉPARATEUR CSV
-   ========================================================== */
-
-function detectCsvDelimiter(text) {
-  const firstNonEmptyLine =
-    String(text || "")
-      .split(/\r?\n/)
-      .find(
-        (line) =>
-          line.trim()
-      ) || "";
-
-  const candidates = [
-    {
-      delimiter: "\t",
-      count:
-        (
-          firstNonEmptyLine.match(
-            /\t/g
-          ) || []
-        ).length,
-    },
-    {
-      delimiter: ";",
-      count:
-        (
-          firstNonEmptyLine.match(
-            /;/g
-          ) || []
-        ).length,
-    },
-    {
-      delimiter: ",",
-      count:
-        (
-          firstNonEmptyLine.match(
-            /,/g
-          ) || []
-        ).length,
-    },
-  ];
-
-  candidates.sort(
-    (a, b) =>
-      b.count - a.count
-  );
-
-  return candidates[0].count > 0
-    ? candidates[0].delimiter
-    : ",";
-}
 
 /* ==========================================================
-   82. ANALYSE D’UNE LIGNE CSV
-   ========================================================== */
-
-function parseCsvLine(
-  line,
-  delimiter
-) {
-  const values = [];
-
-  let currentValue = "";
-  let insideQuotes = false;
-
-  for (
-    let index = 0;
-    index < line.length;
-    index += 1
-  ) {
-    const character =
-      line[index];
-
-    const nextCharacter =
-      line[index + 1];
-
-    if (character === '"') {
-      if (
-        insideQuotes &&
-        nextCharacter === '"'
-      ) {
-        currentValue += '"';
-        index += 1;
-      } else {
-        insideQuotes =
-          !insideQuotes;
-      }
-
-      continue;
-    }
-
-    if (
-      character === delimiter &&
-      !insideQuotes
-    ) {
-      values.push(
-        currentValue.trim()
-      );
-
-      currentValue = "";
-      continue;
-    }
-
-    currentValue +=
-      character;
-  }
-
-  values.push(
-    currentValue.trim()
-  );
-
-  return values;
-}
-
-/* ==========================================================
-   83. TRANSFORMATION DU CSV EN OBJETS
-   ========================================================== */
-
-function parseCsvText(text) {
-  const normalizedText =
-    String(text || "")
-      .replace(/^\uFEFF/, "")
-      .replace(/\r\n/g, "\n")
-      .replace(/\r/g, "\n");
-
-  const lines =
-    normalizedText
-      .split("\n")
-      .filter(
-        (line) =>
-          line.trim()
-      );
-
-  if (lines.length < 2) {
-    throw new Error(
-      "Le fichier CSV ne contient aucune donnée exploitable."
-    );
-  }
-
-  const delimiter =
-    detectCsvDelimiter(
-      normalizedText
-    );
-
-  const rawHeaders =
-    parseCsvLine(
-      lines[0],
-      delimiter
-    );
-
-  const headers =
-    rawHeaders.map(
-      normalizeHeader
-    );
-
-  const rows = [];
-
-  for (
-    let index = 1;
-    index < lines.length;
-    index += 1
-  ) {
-    const values =
-      parseCsvLine(
-        lines[index],
-        delimiter
-      );
-
-    const row = {
-      __lineNumber:
-        index + 1,
-    };
-
-    headers.forEach(
-      (
-        header,
-        headerIndex
-      ) => {
-        row[header] =
-          values[headerIndex]
-            ?.trim() || "";
-      }
-    );
-
-    rows.push(row);
-  }
-
-  return {
-    rows,
-    headers,
-    delimiter,
-  };
-}
-
-/* ==========================================================
-   84. RÉCUPÉRATION D’UNE VALEUR CSV
-   ========================================================== */
-
-function getCsvValue(
-  row,
-  aliases
-) {
-  for (
-    const alias
-    of aliases
-  ) {
-    const normalizedAlias =
-      normalizeHeader(
-        alias
-      );
-
-    if (
-      Object.prototype
-        .hasOwnProperty
-        .call(
-          row,
-          normalizedAlias
-        )
-    ) {
-      const value =
-        String(
-          row[
-            normalizedAlias
-          ] ?? ""
-        ).trim();
-
-      if (value) {
-        return value;
-      }
-    }
-  }
-
-  return "";
-}
-
-/* ==========================================================
-   85. VALIDATION DES COLONNES CSV DES ALERTES
+   93. VALIDATION DES EN-TÊTES CSV DES ALERTES
    ========================================================== */
 
 function validateAlertCsvHeaders(
@@ -6372,7 +7116,7 @@ function validateAlertCsvHeaders(
 }
 
 /* ==========================================================
-   86. NORMALISATION D’UNE LIGNE CSV D’ALERTE
+   94. NORMALISATION D’UNE LIGNE CSV D’ALERTE
    ========================================================== */
 
 function normalizeAlertCsvRow(
@@ -6430,7 +7174,7 @@ function normalizeAlertCsvRow(
 }
 
 /* ==========================================================
-   87. REGROUPEMENT DES ALERTES DU CSV
+   95. REGROUPEMENT DES ALERTES DU CSV
    ========================================================== */
 
 function groupAlertCsvRows(
@@ -6597,7 +7341,7 @@ function groupAlertCsvRows(
 }
 
 /* ==========================================================
-   88. LECTURE DU CSV DES ALERTES
+   96. LECTURE DU CSV DES ALERTES
    ========================================================== */
 
 async function readAlertCsvFile() {
@@ -6614,7 +7358,7 @@ async function readAlertCsvFile() {
 }
 
 /* ==========================================================
-   89. PRÉVISUALISATION DU CSV DES ALERTES
+   97. PRÉVISUALISATION DU CSV DES ALERTES
    ========================================================== */
 
 function renderAlertCsvPreview(
@@ -6630,7 +7374,8 @@ function renderAlertCsvPreview(
   }
 
   if (
-    groupedAlerts.length === 0
+    groupedAlerts.length ===
+    0
   ) {
     preview.innerHTML = `
       <div class="empty-state">
@@ -6687,17 +7432,9 @@ function renderAlertCsvPreview(
       <table>
         <thead>
           <tr>
-            <th>
-              Alerte ID
-            </th>
-
-            <th>
-              Région
-            </th>
-
-            <th>
-              Commune(s)
-            </th>
+            <th>Alerte ID</th>
+            <th>Région</th>
+            <th>Commune(s)</th>
           </tr>
         </thead>
 
@@ -6751,14 +7488,25 @@ function renderAlertCsvPreview(
 }
 
 /* ==========================================================
-   90. TRAITEMENT DE LA PRÉVISUALISATION DES ALERTES
+   98. TRAITEMENT DE LA PRÉVISUALISATION DES ALERTES
    ========================================================== */
 
-async function handleAlertCsvPreview() {
+async function handleAlertCsvPreview(
+  event
+) {
+  preventNativeFormSubmission(
+    event
+  );
+
   if (!state.isAdmin) {
     openLoginModal();
     return;
   }
+
+  const button =
+    getElement(
+      "alertCsvPreviewButton"
+    );
 
   const messageElement =
     getElement(
@@ -6767,6 +7515,12 @@ async function handleAlertCsvPreview() {
 
   hideMessage(
     messageElement
+  );
+
+  setButtonLoading(
+    button,
+    true,
+    "Analyse..."
   );
 
   try {
@@ -6795,7 +7549,7 @@ async function handleAlertCsvPreview() {
 
     showMessage(
       messageElement,
-      "Le fichier CSV est valide et prêt à être importé.",
+      `${groupedAlerts.length} Alerte(s) ID valide(s). Le fichier est prêt à être importé.`,
       "success"
     );
   } catch (error) {
@@ -6806,7 +7560,6 @@ async function handleAlertCsvPreview() {
 
     if (preview) {
       preview.innerHTML = "";
-
       preview.classList.add(
         "hidden"
       );
@@ -6814,21 +7567,36 @@ async function handleAlertCsvPreview() {
 
     showMessage(
       messageElement,
-      error?.message ||
-      "Le fichier CSV est invalide.",
+      getErrorMessage(
+        error,
+        "Le fichier CSV est invalide."
+      ),
       "error"
+    );
+  } finally {
+    setButtonLoading(
+      button,
+      false
     );
   }
 }
 
 /* ==========================================================
-   91. IMPORTATION DU CSV DES ALERTES
+   99. IMPORTATION DU CSV DES ALERTES
    ========================================================== */
 
 async function handleAlertCsvImport(
   event
 ) {
-  event.preventDefault();
+  preventNativeFormSubmission(
+    event
+  );
+
+  if (
+    state.alertImportInProgress
+  ) {
+    return;
+  }
 
   if (!state.isAdmin) {
     openLoginModal();
@@ -6836,7 +7604,7 @@ async function handleAlertCsvImport(
   }
 
   const submitButton =
-    event.submitter ||
+    event?.submitter ||
     getElement(
       "alertCsvImportButton"
     );
@@ -6849,6 +7617,9 @@ async function handleAlertCsvImport(
   hideMessage(
     messageElement
   );
+
+  state.alertImportInProgress =
+    true;
 
   setButtonLoading(
     submitButton,
@@ -6877,7 +7648,8 @@ async function handleAlertCsvImport(
       );
 
     if (
-      groupedAlerts.length === 0
+      groupedAlerts.length ===
+      0
     ) {
       throw new Error(
         "Aucune Alerte ID valide n’a été trouvée dans le fichier."
@@ -6919,6 +7691,14 @@ async function handleAlertCsvImport(
       ].join(" "),
       "success"
     );
+
+    showView(
+      "admin"
+    );
+
+    showAdminTab(
+      "alerts"
+    );
   } catch (error) {
     console.error(
       "Erreur lors de l’importation des Alertes ID :",
@@ -6927,11 +7707,24 @@ async function handleAlertCsvImport(
 
     showMessage(
       messageElement,
-      error?.message ||
-      "Impossible d’importer les Alertes ID.",
+      getErrorMessage(
+        error,
+        "Impossible d’importer les Alertes ID."
+      ),
       "error"
     );
+
+    showView(
+      "admin"
+    );
+
+    showAdminTab(
+      "alerts"
+    );
   } finally {
+    state.alertImportInProgress =
+      false;
+
     setButtonLoading(
       submitButton,
       false
@@ -6940,7 +7733,7 @@ async function handleAlertCsvImport(
 }
 
 /* ==========================================================
-   92. CRÉATION ET MISE À JOUR DES ALERTES IMPORTÉES
+   100. CRÉATION ET MISE À JOUR DES ALERTES IMPORTÉES
    ========================================================== */
 
 async function importGroupedAlerts(
@@ -7125,7 +7918,7 @@ async function importGroupedAlerts(
 }
 
 /* ==========================================================
-   93. IMPORTATION DES COMMUNES D’UNE ALERTE
+   101. IMPORTATION DES COMMUNES D’UNE ALERTE
    ========================================================== */
 
 async function importAlertCommunes(
@@ -7249,18 +8042,29 @@ async function importAlertCommunes(
   if (
     rowsToInsert.length > 0
   ) {
-    const {
-      error,
-    } = await supabase
-      .from("alert_communes")
-      .insert(
-        rowsToInsert
+    const chunks =
+      chunkArray(
+        rowsToInsert,
+        100
       );
 
-    if (error) {
-      throw new Error(
-        `Impossible d’ajouter les communes : ${error.message}`
-      );
+    for (
+      const rowsChunk
+      of chunks
+    ) {
+      const {
+        error,
+      } = await supabase
+        .from("alert_communes")
+        .insert(
+          rowsChunk
+        );
+
+      if (error) {
+        throw new Error(
+          `Impossible d’ajouter les communes : ${error.message}`
+        );
+      }
     }
 
     result.created +=
@@ -7271,7 +8075,7 @@ async function importAlertCommunes(
 }
 
 /* ==========================================================
-   94. RÉINITIALISATION DE L’IMPORT CSV DES ALERTES
+   102. RÉINITIALISATION DE L’IMPORT CSV DES ALERTES
    ========================================================== */
 
 function resetAlertCsvImport(
@@ -7292,7 +8096,6 @@ function resetAlertCsvImport(
 
   if (preview) {
     preview.innerHTML = "";
-
     preview.classList.add(
       "hidden"
     );
@@ -7307,8 +8110,28 @@ function resetAlertCsvImport(
   }
 }
 
+function handleAlertCsvFileChange() {
+  const preview =
+    getElement(
+      "alertCsvPreview"
+    );
+
+  if (preview) {
+    preview.innerHTML = "";
+    preview.classList.add(
+      "hidden"
+    );
+  }
+
+  hideMessage(
+    getElement(
+      "alertCsvMessage"
+    )
+  );
+}
+
 /* ==========================================================
-   95. LIBELLÉS DES STATUTS DES DOCUMENTS
+   103. LIBELLÉS DES STATUTS DES DOCUMENTS
    ========================================================== */
 
 function getDocumentStatusLabel(
@@ -7353,7 +8176,7 @@ function getDocumentStatusClass(
 }
 
 /* ==========================================================
-   96. AFFICHAGE ADMINISTRATIF DES DOCUMENTS
+   104. AFFICHAGE ADMINISTRATIF DES DOCUMENTS
    ========================================================== */
 
 function renderAdminDocuments() {
@@ -7379,7 +8202,8 @@ function renderAdminDocuments() {
   }
 
   if (
-    state.documents.length === 0
+    state.documents.length ===
+    0
   ) {
     tableBody.innerHTML = `
       <tr>
@@ -7531,7 +8355,7 @@ function renderAdminDocuments() {
 }
 
 /* ==========================================================
-   97. MODIFICATION DU STATUT D’UN DOCUMENT
+   105. MODIFICATION DU STATUT D’UN DOCUMENT
    ========================================================== */
 
 async function changeDocumentStatus(
@@ -7573,7 +8397,8 @@ async function changeDocumentStatus(
     );
 
   if (
-    requestedStatus === null
+    requestedStatus ===
+    null
   ) {
     return;
   }
@@ -7633,10 +8458,18 @@ async function changeDocumentStatus(
   }
 
   await loadDocuments();
+
+  showView(
+    "admin"
+  );
+
+  showAdminTab(
+    "documents"
+  );
 }
 
 /* ==========================================================
-   98. SÉLECTION DU FICHIER DE REMPLACEMENT
+   106. SÉLECTION DU FICHIER DE REMPLACEMENT
    ========================================================== */
 
 function requestDocumentReplacement(
@@ -7704,7 +8537,7 @@ function requestDocumentReplacement(
 }
 
 /* ==========================================================
-   99. TRAITEMENT DU FICHIER DE REMPLACEMENT
+   107. TRAITEMENT DU FICHIER DE REMPLACEMENT
    ========================================================== */
 
 async function handleDocumentReplacementFileChange(
@@ -7732,8 +8565,10 @@ async function handleDocumentReplacementFileChange(
     );
   } catch (error) {
     window.alert(
-      error?.message ||
-      "Le fichier sélectionné est invalide."
+      getErrorMessage(
+        error,
+        "Le fichier sélectionné est invalide."
+      )
     );
 
     fileInput.value = "";
@@ -7765,7 +8600,6 @@ async function handleDocumentReplacementFileChange(
 
   if (!confirmed) {
     fileInput.value = "";
-
     return;
   }
 
@@ -7778,7 +8612,7 @@ async function handleDocumentReplacementFileChange(
 }
 
 /* ==========================================================
-   100. REMPLACEMENT DU DOCUMENT
+   108. REMPLACEMENT DU DOCUMENT
    ========================================================== */
 
 async function replaceDocumentFile(
@@ -7920,6 +8754,14 @@ async function replaceDocumentFile(
     );
 
     await loadDocuments();
+
+    showView(
+      "admin"
+    );
+
+    showAdminTab(
+      "documents"
+    );
   } catch (error) {
     if (newFileUploaded) {
       const {
@@ -7941,14 +8783,16 @@ async function replaceDocumentFile(
     }
 
     window.alert(
-      error?.message ||
-      "Impossible de remplacer le document."
+      getErrorMessage(
+        error,
+        "Impossible de remplacer le document."
+      )
     );
   }
 }
 
 /* ==========================================================
-   101. SUPPRESSION D’UN DOCUMENT
+   109. SUPPRESSION D’UN DOCUMENT
    ========================================================== */
 
 async function deleteDocument(
@@ -8039,10 +8883,18 @@ async function deleteDocument(
   }
 
   await loadDocuments();
+
+  showView(
+    "admin"
+  );
+
+  showAdminTab(
+    "documents"
+  );
 }
 
 /* ==========================================================
-   102. ACTIONS DU TABLEAU DES DOCUMENTS
+   110. ACTIONS DU TABLEAU DES DOCUMENTS
    ========================================================== */
 
 function handleAdminDocumentTableClick(
@@ -8056,6 +8908,10 @@ function handleAdminDocumentTableClick(
   if (!control) {
     return;
   }
+
+  preventNativeFormSubmission(
+    event
+  );
 
   const documentId =
     control.dataset.id;
@@ -8086,17 +8942,22 @@ function handleAdminDocumentTableClick(
       break;
 
     default:
+      console.warn(
+        `Action document inconnue : ${control.dataset.action}`
+      );
       break;
   }
 }
 /* ==========================================================
-   103. INITIALISATION DES ÉVÉNEMENTS
+   111. INITIALISATION DES ÉVÉNEMENTS
    ========================================================== */
 
 function initializeEvents() {
-  /* --------------------------------------------------------
-     Navigation
-     -------------------------------------------------------- */
+  if (state.eventsInitialized) {
+    return;
+  }
+
+  state.eventsInitialized = true;
 
   initializeNavigation();
   initializeAdminTabs();
@@ -8109,7 +8970,13 @@ function initializeEvents() {
     "loginButton"
   )?.addEventListener(
     "click",
-    openLoginModal
+    (event) => {
+      preventNativeFormSubmission(
+        event
+      );
+
+      openLoginModal();
+    }
   );
 
   getElement(
@@ -8123,14 +8990,26 @@ function initializeEvents() {
     "closeLoginModal"
   )?.addEventListener(
     "click",
-    closeLoginModal
+    (event) => {
+      preventNativeFormSubmission(
+        event
+      );
+
+      closeLoginModal();
+    }
   );
 
   getElement(
     "cancelLoginButton"
   )?.addEventListener(
     "click",
-    closeLoginModal
+    (event) => {
+      preventNativeFormSubmission(
+        event
+      );
+
+      closeLoginModal();
+    }
   );
 
   getElement(
@@ -8140,10 +9019,6 @@ function initializeEvents() {
     handleAdminLogin
   );
 
-  /*
-   * Fermeture de la fenêtre de connexion
-   * par clic sur l’arrière-plan.
-   */
   getElement(
     "loginModal"
   )?.addEventListener(
@@ -8159,10 +9034,6 @@ function initializeEvents() {
     }
   );
 
-  /*
-   * Fermeture de la fenêtre de connexion
-   * avec la touche Échap.
-   */
   document.addEventListener(
     "keydown",
     (event) => {
@@ -8217,7 +9088,11 @@ function initializeEvents() {
     "resetPublishButton"
   )?.addEventListener(
     "click",
-    () => {
+    (event) => {
+      preventNativeFormSubmission(
+        event
+      );
+
       resetPublishForm();
     }
   );
@@ -8269,7 +9144,7 @@ function initializeEvents() {
   );
 
   /* --------------------------------------------------------
-     Administration des organisations
+     Administration manuelle des organisations
      -------------------------------------------------------- */
 
   getElement(
@@ -8283,7 +9158,11 @@ function initializeEvents() {
     "resetOrganizationButton"
   )?.addEventListener(
     "click",
-    () => {
+    (event) => {
+      preventNativeFormSubmission(
+        event
+      );
+
       resetOrganizationForm();
     }
   );
@@ -8299,10 +9178,24 @@ function initializeEvents() {
      Import CSV des organisations
      -------------------------------------------------------- */
 
-  getElement(
-    "organizationsCsvForm"
-  )?.addEventListener(
+  const organizationsCsvForm =
+    getElement(
+      "organizationsCsvForm"
+    );
+
+  organizationsCsvForm?.addEventListener(
     "submit",
+    (event) => {
+      preventNativeFormSubmission(
+        event
+      );
+    }
+  );
+
+  getElement(
+    "importOrganizationsButton"
+  )?.addEventListener(
+    "click",
     handleOrganizationsCsvImport
   );
 
@@ -8317,7 +9210,11 @@ function initializeEvents() {
     "resetOrganizationsCsvButton"
   )?.addEventListener(
     "click",
-    () => {
+    (event) => {
+      preventNativeFormSubmission(
+        event
+      );
+
       resetOrganizationsCsvImport();
     }
   );
@@ -8326,30 +9223,11 @@ function initializeEvents() {
     "organizationsCsvFile"
   )?.addEventListener(
     "change",
-    () => {
-      const preview =
-        getElement(
-          "organizationsCsvPreview"
-        );
-
-      if (preview) {
-        preview.innerHTML = "";
-
-        preview.classList.add(
-          "hidden"
-        );
-      }
-
-      hideMessage(
-        getElement(
-          "organizationsImportMessage"
-        )
-      );
-    }
+    handleOrganizationsCsvFileChange
   );
 
   /* --------------------------------------------------------
-     Administration des Alertes ID
+     Administration manuelle des Alertes ID
      -------------------------------------------------------- */
 
   getElement(
@@ -8363,7 +9241,11 @@ function initializeEvents() {
     "resetAlertButton"
   )?.addEventListener(
     "click",
-    () => {
+    (event) => {
+      preventNativeFormSubmission(
+        event
+      );
+
       resetAlertForm();
     }
   );
@@ -8397,7 +9279,11 @@ function initializeEvents() {
     "resetAlertCsvButton"
   )?.addEventListener(
     "click",
-    () => {
+    (event) => {
+      preventNativeFormSubmission(
+        event
+      );
+
       resetAlertCsvImport();
     }
   );
@@ -8406,26 +9292,7 @@ function initializeEvents() {
     "alertCsvFile"
   )?.addEventListener(
     "change",
-    () => {
-      const preview =
-        getElement(
-          "alertCsvPreview"
-        );
-
-      if (preview) {
-        preview.innerHTML = "";
-
-        preview.classList.add(
-          "hidden"
-        );
-      }
-
-      hideMessage(
-        getElement(
-          "alertCsvMessage"
-        )
-      );
-    }
+    handleAlertCsvFileChange
   );
 
   /* --------------------------------------------------------
@@ -8440,7 +9307,7 @@ function initializeEvents() {
   );
 
   /* --------------------------------------------------------
-     Actualisation de l’administration
+     Actualisation administrative
      -------------------------------------------------------- */
 
   getElement(
@@ -8452,10 +9319,16 @@ function initializeEvents() {
 }
 
 /* ==========================================================
-   104. ACTUALISATION DE L’ADMINISTRATION
+   112. ACTUALISATION DE L’ADMINISTRATION
    ========================================================== */
 
-async function refreshAdminData() {
+async function refreshAdminData(
+  event
+) {
+  preventNativeFormSubmission(
+    event
+  );
+
   if (!state.isAdmin) {
     openLoginModal();
     return;
@@ -8497,8 +9370,10 @@ async function refreshAdminData() {
 
     showMessage(
       messageElement,
-      error?.message ||
-      "Impossible d’actualiser les données.",
+      getErrorMessage(
+        error,
+        "Impossible d’actualiser les données."
+      ),
       "error"
     );
   } finally {
@@ -8510,7 +9385,7 @@ async function refreshAdminData() {
 }
 
 /* ==========================================================
-   105. ACTUALISATION GLOBALE DE L’APPLICATION
+   113. ACTUALISATION GLOBALE DE L’APPLICATION
    ========================================================== */
 
 async function refreshApplicationData() {
@@ -8522,11 +9397,6 @@ async function refreshApplicationData() {
   if (state.isAdmin) {
     await loadAdminData();
 
-    /*
-     * Les référentiels administratifs peuvent contenir
-     * des alertes et des communes inactives utilisées
-     * par d’anciens documents.
-     */
     refreshDocumentEnrichment();
   }
 
@@ -8539,8 +9409,10 @@ async function refreshApplicationData() {
       referenceErrors
         .map(
           (error) =>
-            error?.message ||
-            String(error)
+            getErrorMessage(
+              error,
+              "Erreur de chargement du référentiel."
+            )
         )
         .join(" ")
     );
@@ -8548,7 +9420,7 @@ async function refreshApplicationData() {
 }
 
 /* ==========================================================
-   106. ÉTAT DE CHARGEMENT INITIAL
+   114. ÉTAT DE CHARGEMENT INITIAL
    ========================================================== */
 
 function setInitialLoadingState(
@@ -8580,7 +9452,7 @@ function setInitialLoadingState(
 }
 
 /* ==========================================================
-   107. AFFICHAGE DES ERREURS D’INITIALISATION
+   115. AFFICHAGE D’UNE ERREUR D’INITIALISATION
    ========================================================== */
 
 function showInitializationError(
@@ -8596,10 +9468,15 @@ function showInitializationError(
       "applicationError"
     );
 
+  const message =
+    getErrorMessage(
+      error,
+      "Impossible de démarrer l’application."
+    );
+
   if (!errorContainer) {
     window.alert(
-      error?.message ||
-      "Impossible de démarrer l’application."
+      message
     );
 
     return;
@@ -8613,8 +9490,7 @@ function showInitializationError(
 
       <p>
         ${escapeHtml(
-          error?.message ||
-          "Une erreur inattendue est survenue."
+          message
         )}
       </p>
 
@@ -8636,14 +9512,18 @@ function showInitializationError(
     "retryInitializationButton"
   )?.addEventListener(
     "click",
-    () => {
+    (event) => {
+      preventNativeFormSubmission(
+        event
+      );
+
       window.location.reload();
     }
   );
 }
 
 /* ==========================================================
-   108. EFFACEMENT DES ERREURS D’INITIALISATION
+   116. EFFACEMENT DES ERREURS D’INITIALISATION
    ========================================================== */
 
 function clearInitializationError() {
@@ -8664,7 +9544,7 @@ function clearInitializationError() {
 }
 
 /* ==========================================================
-   109. VALIDATION DE LA CONFIGURATION
+   117. VALIDATION DE LA CONFIGURATION
    ========================================================== */
 
 function validateConfiguration() {
@@ -8724,19 +9604,16 @@ function validateConfiguration() {
     );
   }
 
-  /*
-   * Protection contre l’utilisation accidentelle
-   * d’une clé secrète dans le navigateur.
-   */
-  if (
+  const publicKey =
     String(
       CONFIG.SUPABASE_PUBLISHABLE_KEY
-    ).startsWith(
+    );
+
+  if (
+    publicKey.startsWith(
       "sb_secret_"
     ) ||
-    String(
-      CONFIG.SUPABASE_PUBLISHABLE_KEY
-    ).includes(
+    publicKey.includes(
       "service_role"
     )
   ) {
@@ -8763,7 +9640,49 @@ function validateConfiguration() {
 }
 
 /* ==========================================================
-   110. PRÉPARATION INITIALE DE L’INTERFACE
+   118. VÉRIFICATION DES ÉLÉMENTS HTML ESSENTIELS
+   ========================================================== */
+
+function validateRequiredInterfaceElements() {
+  const requiredElementIds = [
+    "applicationLoading",
+    "applicationContent",
+    "homeView",
+    "documentsView",
+    "publishView",
+    "adminView",
+    "loginButton",
+    "logoutButton",
+    "publishForm",
+    "documentsList",
+    "organizationForm",
+    "organizationsCsvForm",
+    "organizationsCsvFile",
+    "importOrganizationsButton",
+    "alertForm",
+    "alertCsvForm",
+    "adminOrganizationsTable",
+    "adminAlertsTable",
+    "adminDocumentsTable",
+  ];
+
+  const missingElements =
+    requiredElementIds.filter(
+      (id) =>
+        !elementExists(id)
+    );
+
+  if (
+    missingElements.length > 0
+  ) {
+    throw new Error(
+      `Éléments HTML introuvables : ${missingElements.join(", ")}.`
+    );
+  }
+}
+
+/* ==========================================================
+   119. PRÉPARATION INITIALE DE L’INTERFACE
    ========================================================== */
 
 function initializeInterface() {
@@ -8794,7 +9713,7 @@ function initializeInterface() {
 }
 
 /* ==========================================================
-   111. CHARGEMENT INITIAL DES DONNÉES
+   120. CHARGEMENT INITIAL DES DONNÉES
    ========================================================== */
 
 async function loadInitialData() {
@@ -8824,10 +9743,6 @@ async function loadInitialData() {
     try {
       await loadAdminData();
 
-      /*
-       * Recharge l’enrichissement après récupération
-       * des référentiels administratifs complets.
-       */
       refreshDocumentEnrichment();
     } catch (error) {
       console.error(
@@ -8849,8 +9764,10 @@ async function loadInitialData() {
         loadingErrors
           .map(
             (error) =>
-              error?.message ||
-              String(error)
+              getErrorMessage(
+                error,
+                "Erreur de chargement."
+              )
           )
           .join(" ")
       )
@@ -8859,7 +9776,7 @@ async function loadInitialData() {
 }
 
 /* ==========================================================
-   112. DÉMARRAGE DE L’APPLICATION
+   121. DÉMARRAGE DE L’APPLICATION
    ========================================================== */
 
 async function initializeApplication() {
@@ -8879,6 +9796,8 @@ async function initializeApplication() {
   try {
     validateConfiguration();
 
+    validateRequiredInterfaceElements();
+
     initializeEvents();
 
     await initializeAuthentication();
@@ -8887,6 +9806,9 @@ async function initializeApplication() {
 
     await loadInitialData();
   } catch (error) {
+    state.initialized =
+      false;
+
     showInitializationError(
       error
     );
@@ -8898,7 +9820,7 @@ async function initializeApplication() {
 }
 
 /* ==========================================================
-   113. LANCEMENT APRÈS CHARGEMENT DU DOM
+   122. LANCEMENT APRÈS CHARGEMENT DU DOM
    ========================================================== */
 
 if (
