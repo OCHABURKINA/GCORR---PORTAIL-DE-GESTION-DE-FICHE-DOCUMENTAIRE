@@ -3410,10 +3410,8 @@ function createDocumentCard(
     publicUrl
       ? `
         <a
-          class="button button-primary button-full"
-          href="${escapeHtml(
-            publicUrl
-          )}"
+          class="button button-primary"
+          href="${escapeHtml(publicUrl)}"
           target="_blank"
           rel="noopener noreferrer"
           download
@@ -3424,7 +3422,7 @@ function createDocumentCard(
       : `
         <button
           type="button"
-          class="button button-secondary button-full"
+          class="button button-secondary"
           disabled
         >
           Fichier indisponible
@@ -3433,32 +3431,28 @@ function createDocumentCard(
 
   return `
     <article class="document-card">
-      <div class="document-card-header">
-        <span class="document-type">
-          PDF
-        </span>
+      <div class="document-card-main">
+        <div class="document-card-header">
+          <span class="document-type">
+            PDF
+          </span>
 
-        <span class="commune-badge">
-          ${escapeHtml(
-            commune
-          )}
-        </span>
+          <span class="commune-badge">
+            ${escapeHtml(commune)}
+          </span>
+        </div>
+
+        <h3>
+          ${escapeHtml(fileName)}
+        </h3>
       </div>
-
-      <h3>
-        ${escapeHtml(
-          fileName
-        )}
-      </h3>
 
       <dl class="document-metadata">
         <div>
           <dt>Organisation</dt>
 
           <dd>
-            ${escapeHtml(
-              organizationName
-            )}
+            ${escapeHtml(organizationName)}
           </dd>
         </div>
 
@@ -3466,9 +3460,7 @@ function createDocumentCard(
           <dt>Alerte ID</dt>
 
           <dd>
-            ${escapeHtml(
-              alertCode
-            )}
+            ${escapeHtml(alertCode)}
           </dd>
         </div>
 
@@ -3476,9 +3468,7 @@ function createDocumentCard(
           <dt>Région</dt>
 
           <dd>
-            ${escapeHtml(
-              region
-            )}
+            ${escapeHtml(region)}
           </dd>
         </div>
 
@@ -3486,32 +3476,27 @@ function createDocumentCard(
           <dt>Commune</dt>
 
           <dd>
-            ${escapeHtml(
-              commune
-            )}
+            ${escapeHtml(commune)}
           </dd>
         </div>
       </dl>
 
-      <div class="document-card-footer">
-        <span>
-          ${formatFileSize(
-            documentItem.file_size
-          )}
-        </span>
+      <div class="document-card-actions">
+        <div class="document-card-footer">
+          <span>
+            ${formatFileSize(documentItem.file_size)}
+          </span>
 
-        <span>
-          ${formatDate(
-            documentItem.created_at
-          )}
-        </span>
+          <span>
+            ${formatDate(documentItem.created_at)}
+          </span>
+        </div>
+
+        ${downloadControl}
       </div>
-
-      ${downloadControl}
     </article>
   `;
 }
-
 /* ==========================================================
    53. STATISTIQUES PUBLIQUES
    ========================================================== */
@@ -5077,6 +5062,89 @@ function groupOrganizationCsvRows(
       )
   );
 }
+/* ==========================================================
+   LECTURE DES CSV AVEC GESTION DE L’ENCODAGE
+   ========================================================== */
+
+async function readCsvFileWithEncoding(
+  file
+) {
+  validateCsvFile(
+    file
+  );
+
+  const buffer =
+    await file.arrayBuffer();
+
+  const bytes =
+    new Uint8Array(
+      buffer
+    );
+
+  /*
+   * Détection du BOM UTF-8 :
+   * EF BB BF
+   */
+  const hasUtf8Bom =
+    bytes.length >= 3 &&
+    bytes[0] === 0xef &&
+    bytes[1] === 0xbb &&
+    bytes[2] === 0xbf;
+
+  /*
+   * Première tentative en UTF-8 strict.
+   */
+  try {
+    const utf8Decoder =
+      new TextDecoder(
+        "utf-8",
+        {
+          fatal: true,
+        }
+      );
+
+    const decodedText =
+      utf8Decoder.decode(
+        hasUtf8Bom
+          ? bytes.slice(3)
+          : bytes
+      );
+
+    return decodedText
+      .replace(/^\uFEFF/, "")
+      .normalize("NFC");
+  } catch (utf8Error) {
+    console.warn(
+      "Le fichier n’est pas en UTF-8. Tentative de lecture en Windows-1252.",
+      utf8Error
+    );
+  }
+
+  /*
+   * Repli pour les fichiers CSV Excel enregistrés
+   * en ANSI ou Windows-1252.
+   */
+  try {
+    const windowsDecoder =
+      new TextDecoder(
+        "windows-1252"
+      );
+
+    return windowsDecoder
+      .decode(bytes)
+      .replace(/^\uFEFF/, "")
+      .normalize("NFC");
+  } catch (windowsError) {
+    console.error(
+      "Erreur de décodage du CSV :",
+      windowsError
+    );
+
+    throw new Error(
+      "Le fichier CSV utilise un encodage non reconnu. Enregistrez-le au format CSV UTF-8."
+    );
+  }
+}
 
 /* ==========================================================
    75. LECTURE DU CSV DES ORGANISATIONS
@@ -5088,22 +5156,16 @@ async function readOrganizationsCsvFile() {
       "organizationsCsvFile"
     )?.files?.[0];
 
-  validateCsvFile(
-    file
-  );
-
-  try {
-    return await file.text();
-  } catch (error) {
+  if (!file) {
     throw new Error(
-      `Impossible de lire le fichier CSV : ${getErrorMessage(
-        error,
-        "Erreur de lecture."
-      )}`
+      "Veuillez sélectionner le fichier CSV des organisations."
     );
   }
-}
 
+  return readCsvFileWithEncoding(
+    file
+  );
+}
 /* ==========================================================
    76. PRÉVISUALISATION DU CSV DES ORGANISATIONS
    ========================================================== */
@@ -5434,7 +5496,9 @@ async function handleOrganizationsCsvImport(
     );
 
     const csvText =
-      await file.text();
+      await readCsvFileWithEncoding(
+    file
+  );
 
     const {
       rows,
@@ -7350,11 +7414,15 @@ async function readAlertCsvFile() {
       "alertCsvFile"
     )?.files?.[0];
 
-  validateCsvFile(
+  if (!file) {
+    throw new Error(
+      "Veuillez sélectionner le fichier CSV des Alertes ID."
+    );
+  }
+
+  return readCsvFileWithEncoding(
     file
   );
-
-  return file.text();
 }
 
 /* ==========================================================
